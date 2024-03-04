@@ -28,46 +28,6 @@ export type Pipeline<Input = unknown> = <Output = unknown>(
   modifications?: PipelineModifications[]
 ) => ChainHandler<Input, Output>
 
-export const makePipeline = <Input>(links: Middleware[]): Pipeline<Input> => {
-  const pipeline: Pipeline<Input> = (modifications = []) => {
-    return async (mutableInput: Input) => {
-      const input = freeze(mutableInput, true)
-
-      const list = modify(links, modifications)
-
-      const next: Next = async (input) => {
-        const current = list.shift()
-
-        if (current) {
-          return await invoke(current, next, input)
-        }
-
-        return input
-      }
-
-      const head = list.shift()
-
-      if (head) {
-        return await invoke(head, next, input)
-      }
-
-      return input
-
-      async function invoke(node, next, input) {
-        if (typeof node === 'function') {
-          return await node(next)(input)
-        } else {
-          return await node[1](next)(input)
-        }
-      }
-    }
-  }
-
-  return pipeline
-}
-
-export const passAlong = (middleware: Middleware): Middleware => middleware
-
 function modify(
   baseList: readonly Middleware[],
   modificationList: readonly PipelineModifications[]
@@ -106,3 +66,43 @@ function modify(
 
   return base
 }
+
+const makePipeline = <Input>(links: Middleware[]): Pipeline<Input> => {
+  const pipeline: Pipeline<Input> = (modifications = []) => {
+    return async (mutableInput: Input) => {
+      const input = freeze(mutableInput, true)
+
+      const list = modify(links, modifications)
+
+      const next: Next = async (input) => {
+        const current = list.shift()
+
+        if (current) {
+          return await invoke(current, next, input)
+        }
+
+        return input
+      }
+
+      const head = list.shift()
+
+      if (head) {
+        return await invoke(head, next, input)
+      }
+
+      return input
+
+      async function invoke(node, next, input) {
+        if (typeof node === 'function') {
+          return await node(next)(input)
+        } else {
+          return await node[1](next)(input)
+        }
+      }
+    }
+  }
+
+  return pipeline
+}
+
+export default makePipeline

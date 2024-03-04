@@ -1,6 +1,6 @@
 {
   "name": "lithe-middleware",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "main": "dist/cjs/main.js",
   "module": "dist/esm/main.js",

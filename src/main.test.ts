@@ -1,9 +1,4 @@
-import {
-  AnonymousMiddleware,
-  Middleware,
-  makePipeline,
-  passAlong
-} from './main.js'
+import makePipeline, { AnonymousMiddleware, Middleware } from './main.js'
 import test from 'ava'
 
 test('linear', async (t) => {
@@ -222,16 +217,6 @@ test('bypassing middleware processing', async (t) => {
   t.deepEqual(await pipeline()(''), '1 2 3')
 
   t.deepEqual(await pipeline([['skip', '2nd']])(''), '1 3')
-})
-
-test('the passAlong helper', async (t) => {
-  const pipeline = makePipeline([passAlong((input) => input)])
-
-  const request = pipeline()
-
-  const reply = await request('foo')
-
-  t.deepEqual(reply, 'foo')
 })
 
 test('appending links', async (t) => {
