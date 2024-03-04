@@ -1,12 +1,14 @@
 {
   "name": "lithe-middleware",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "type": "module",
   "main": "dist/cjs/main.js",
   "module": "dist/esm/main.js",
   "types": "dist/esm/main.d.ts",
   "scripts": {
-    "build": "tsc && tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build": "pnpm build:cjs && pnpm build:esm",
     "format": "npx prettier . --write",
     "lint": "tsc --noEmit && eslint src --fix",
     "test": "pnpm build && c8 ava src/*.test.ts src/*/*.test.ts && c8 report > coverage.txt"

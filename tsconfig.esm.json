@@ -11,7 +11,7 @@
     "module": "ESNext",
     "moduleResolution": "node",
     "noImplicitAny": false,
-    "outDir": "./dist/cjs",
+    "outDir": "./dist/esm",
     "rootDir": "./src",
     "skipLibCheck": true,
     "sourceMap": true,
