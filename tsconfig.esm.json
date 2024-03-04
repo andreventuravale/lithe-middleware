@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react",
+    "lib": ["DOM", "ES2020", "ESNext.AsyncIterable"],
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "noImplicitAny": false,
+    "outDir": "./dist/esm",
+    "rootDir": "./src",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strictNullChecks": false,
+    "target": "ESNext"
+  },
+  "exclude": ["**/dist/*", "**/dist/**/*", "**/node_modules/**/*"]
+}
