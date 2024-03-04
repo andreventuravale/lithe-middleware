@@ -1,3 +1,5 @@
+import { freeze } from 'immer'
+
 export type ChainHandler<Input = unknown, Output = unknown> = (
   input: Input
 ) => Promise<Output>
@@ -26,9 +28,13 @@ export type Pipeline<Input = unknown> = <Output = unknown>(
   modifications?: PipelineModifications[]
 ) => ChainHandler<Input, Output>
 
-export const makePipeline = <Input>(links: Middleware[]): Pipeline<Input> => {
+export const makePipeline = <Input>(
+  links: Middleware<Input>[]
+): Pipeline<Input> => {
   const pipeline: Pipeline<Input> = (modifications = []) => {
-    return async (input: Input) => {
+    return async (mutableInput: Input) => {
+      const input = freeze(mutableInput, true)
+
       const list = modify(links, modifications)
 
       const next: Next = async (input) => {
@@ -62,7 +68,7 @@ export const makePipeline = <Input>(links: Middleware[]): Pipeline<Input> => {
   return pipeline
 }
 
-export const passAlong: Next = async (input) => input
+export const passAlong = (middleware: Middleware): Middleware => middleware
 
 function modify(
   baseList: readonly Middleware[],

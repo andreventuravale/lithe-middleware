@@ -193,7 +193,6 @@ test('modifications are processed in the same sequence as they are provided ( ex
 
 test('substituting links', async (t) => {
   const pipeline = makePipeline([
-    (next) => async (input) => await next(input),
     ['foo', (next) => async (input) => await next(input + 'foo')],
     ['bar', (next) => async (input) => await next(input + ' bar')]
   ])
@@ -215,7 +214,6 @@ test('substituting links', async (t) => {
 
 test('bypassing middleware processing', async (t) => {
   const pipeline = makePipeline([
-    (next) => async (input) => await next(input),
     ['1st', (next) => async (input) => await next(input + '1')],
     ['2nd', (next) => async (input) => await next(input + ' 2')],
     ['3rd', (next) => async (input) => await next(input + ' 3')]
@@ -227,7 +225,7 @@ test('bypassing middleware processing', async (t) => {
 })
 
 test('the passAlong helper', async (t) => {
-  const pipeline = makePipeline([() => passAlong])
+  const pipeline = makePipeline([passAlong((input) => input)])
 
   const request = pipeline()
 
@@ -238,7 +236,6 @@ test('the passAlong helper', async (t) => {
 
 test('appending links', async (t) => {
   const pipeline = makePipeline([
-    (next) => async (input) => await next(input),
     ['1st', (next) => async (input) => await next(input + '1')],
     ['2nd', (next) => async (input) => await next(input + ' 2')],
     ['3rd', (next) => async (input) => await next(input + ' 3')]
@@ -251,4 +248,18 @@ test('appending links', async (t) => {
     ])(''),
     '1 2 3 4 5'
   )
+})
+
+test('does allow mutations', async (t) => {
+  const pipeline = makePipeline<{ foo: string }>([
+    (next) => async (input) => {
+      input.foo = 'baz'
+
+      return await next(input)
+    }
+  ])
+
+  await t.throwsAsync(async () => await pipeline()({ foo: 'bar' }), {
+    message: /Cannot assign to read only property 'foo'/
+  })
 })
