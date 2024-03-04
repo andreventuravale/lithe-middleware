@@ -251,8 +251,8 @@ test('appending links', async (t) => {
 })
 
 test('does allow mutations', async (t) => {
-  const pipeline = makePipeline<{ foo: string }>([
-    (next) => async (input) => {
+  const pipeline = makePipeline([
+    (next) => async (input: { foo: string }) => {
       input.foo = 'baz'
 
       return await next(input)
@@ -262,4 +262,47 @@ test('does allow mutations', async (t) => {
   await t.throwsAsync(async () => await pipeline()({ foo: 'bar' }), {
     message: /Cannot assign to read only property 'foo'/
   })
+})
+
+test('does allow deep mutations', async (t) => {
+  const pipeline = makePipeline([
+    (next) => async (input: { foo: { bar: string } }) => {
+      input.foo.bar = 'qux'
+
+      return await next(input)
+    }
+  ])
+
+  await t.throwsAsync(async () => await pipeline()({ foo: { bar: 'baz' } }), {
+    message: /Cannot assign to read only property 'bar'/
+  })
+})
+
+test('does allow deep mutations inside arrays', async (t) => {
+  const pipeline = makePipeline([
+    (next) => async (input: { foo: Array<number | { bar: string }> }) => {
+      const entry = input.foo[1] as { bar: string }
+
+      entry.bar = 'qux'
+
+      return await next(input)
+    }
+  ])
+
+  await t.throwsAsync(
+    async () => await pipeline()({ foo: [0, { bar: 'baz' }] }),
+    {
+      message: /Cannot assign to read only property 'bar'/
+    }
+  )
+})
+
+test('I can specify a resulting type without breaking the type-checker', async (t) => {
+  const pipeline = makePipeline([(next) => async (input) => await next(input)])
+
+  const request = pipeline<{ foo: { bar: string } }>()
+
+  const reply = await request({ foo: 'bar' })
+
+  t.deepEqual(reply.foo, 'bar')
 })

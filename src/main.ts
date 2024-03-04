@@ -28,9 +28,7 @@ export type Pipeline<Input = unknown> = <Output = unknown>(
   modifications?: PipelineModifications[]
 ) => ChainHandler<Input, Output>
 
-export const makePipeline = <Input>(
-  links: Middleware<Input>[]
-): Pipeline<Input> => {
+export const makePipeline = <Input>(links: Middleware[]): Pipeline<Input> => {
   const pipeline: Pipeline<Input> = (modifications = []) => {
     return async (mutableInput: Input) => {
       const input = freeze(mutableInput, true)

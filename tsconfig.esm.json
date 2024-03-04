@@ -11,11 +11,10 @@
     "module": "ESNext",
     "moduleResolution": "node",
     "noImplicitAny": false,
-    "outDir": "./dist/esm",
+    "outDir": "./dist/cjs",
     "rootDir": "./src",
     "skipLibCheck": true,
     "sourceMap": true,
-    "strictNullChecks": false,
     "target": "ESNext"
   },
   "exclude": ["**/dist/*", "**/dist/**/*", "**/node_modules/**/*"]
