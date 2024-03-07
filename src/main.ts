@@ -116,6 +116,7 @@ const makePipeline = <Input>(
 
       async function invoke(node, next, input) {
         let error
+
         try {
           if (typeof node === 'function') {
             return await node(next)(input)
@@ -127,18 +128,11 @@ const makePipeline = <Input>(
 
           throw e
         } finally {
-          notify(error ? 'failed' : 'success', error, input, node)
+          notify(error ? 'failed' : 'success', { error, input, name: node[0] })
         }
       }
 
-      function notify(
-        type: PipelineEventType,
-        error: Error,
-        input: Input,
-        node: Middleware
-      ) {
-        const info = { error, input, name: node[0] }
-
+      function notify(type: PipelineEventType, info: PipelineEventInfo<Input>) {
         plugins?.forEach((plugin) => {
           plugin.event?.(type, info)
         })
