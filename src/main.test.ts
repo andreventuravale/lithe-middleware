@@ -297,7 +297,7 @@ test('I can specify a resulting type without breaking the type-checker', async (
   t.deepEqual(reply.foo, 'bar')
 })
 
-test('plugins', async (t) => {
+test('plugins - events', async (t) => {
   const event = func<PipelineEventHandler<string>>()
 
   const pipeline = makePipeline(
@@ -319,16 +319,110 @@ test('plugins', async (t) => {
 
   await request('')
 
-  verify(event('success', { error: undefined, input: '1 2', name: '3rd' }))
-  verify(event('success', { error: undefined, input: '1', name: '2nd' }))
-  verify(event('success', { error: undefined, input: '', name: '1st' }))
+  verify(event({ type: 'begin', input: '1 2', name: '3rd' }))
+  verify(event({ type: 'begin', input: '1', name: '2nd' }))
+  verify(event({ type: 'begin', input: '', name: '1st' }))
 
   t.deepEqual(
     explain(event).calls.map(({ args }) => args),
     [
-      ['success', { error: undefined, input: '1 2', name: '3rd' }],
-      ['success', { error: undefined, input: '1', name: '2nd' }],
-      ['success', { error: undefined, input: '', name: '1st' }]
+      [{ type: 'begin', input: '', name: '1st' }],
+      [{ type: 'begin', input: '1', name: '2nd' }],
+      [{ type: 'begin', input: '1 2', name: '3rd' }],
+      [
+        {
+          type: 'end',
+          input: '1 2',
+          name: '3rd',
+          status: 'success',
+          error: undefined
+        }
+      ],
+      [
+        {
+          type: 'end',
+          input: '1',
+          name: '2nd',
+          status: 'success',
+          error: undefined
+        }
+      ],
+      [
+        {
+          type: 'end',
+          input: '',
+          name: '1st',
+          status: 'success',
+          error: undefined
+        }
+      ]
     ]
+  )
+})
+
+test('plugins - events with failures', async (t) => {
+  const event = func<PipelineEventHandler<string>>()
+
+  const pipeline = makePipeline(
+    [
+      ['1st', (next) => async (input) => await next(input + '1')],
+      ['2nd', (next) => async (input) => await next(input + ' 2')],
+      [
+        '3rd',
+        () => async () => {
+          throw new Error('error on 3rd')
+        }
+      ]
+    ],
+    {
+      plugins: [
+        {
+          event
+        }
+      ]
+    }
+  )
+
+  const request = pipeline()
+
+  await t.throwsAsync(
+    async () => {
+      await request('')
+    },
+    { message: 'error on 3rd' }
+  )
+
+  verify(event({ type: 'begin', input: '', name: '1st' }))
+  verify(event({ type: 'begin', input: '1', name: '2nd' }))
+  verify(event({ type: 'begin', input: '1 2', name: '3rd' }))
+
+  verify(
+    event({
+      type: 'end',
+      input: '1 2',
+      name: '3rd',
+      status: 'failure',
+      error: new Error('error on 3rd')
+    })
+  )
+
+  verify(
+    event({
+      type: 'end',
+      input: '1',
+      name: '2nd',
+      status: 'failure',
+      error: new Error('error on 3rd')
+    })
+  )
+
+  verify(
+    event({
+      type: 'end',
+      input: '',
+      name: '1st',
+      status: 'failure',
+      error: new Error('error on 3rd')
+    })
   )
 })

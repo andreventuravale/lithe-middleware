@@ -67,17 +67,27 @@ function modify(
   return base
 }
 
-type PipelineEventType = 'success' | 'failed'
+export type PipelineEventType = 'begin' | 'end'
 
-export type PipelineEventInfo<Input> = {
-  name?: string
+export type PipelineBaseEvent<Input, Type extends PipelineEventType> = {
+  type: Type
+  name: string | undefined
   input: Input
+}
+
+export type PipelineBeginEvent<Input> = PipelineBaseEvent<Input, 'begin'>
+
+export type PipelineEndEvent<Input> = PipelineBaseEvent<Input, 'end'> & {
+  status: 'success' | 'failure'
   error?: Error
 }
 
+export type PipelineEvent<Input> =
+  | PipelineBeginEvent<Input>
+  | PipelineEndEvent<Input>
+
 export type PipelineEventHandler<Input> = (
-  type: PipelineEventType,
-  info: PipelineEventInfo<Input>
+  event: Readonly<PipelineEvent<Input>>
 ) => Promise<void>
 
 export type PipelinePlugin<Input> = { event?: PipelineEventHandler<Input> }
@@ -118,6 +128,12 @@ const makePipeline = <Input>(
         let error
 
         try {
+          await notify({
+            type: 'begin',
+            input,
+            name: node[0]
+          })
+
           if (typeof node === 'function') {
             return await node(next)(input)
           } else {
@@ -128,13 +144,21 @@ const makePipeline = <Input>(
 
           throw e
         } finally {
-          notify(error ? 'failed' : 'success', { error, input, name: node[0] })
+          await notify({
+            type: 'end',
+            input,
+            name: node[0],
+            status: error ? 'failure' : 'success',
+            error
+          })
         }
       }
 
-      function notify(type: PipelineEventType, info: PipelineEventInfo<Input>) {
+      function notify(info: Readonly<PipelineEvent<Input>>) {
+        const frozen = freeze(info, true)
+
         plugins?.forEach((plugin) => {
-          plugin.event?.(type, info)
+          plugin.event?.(frozen)
         })
       }
     }
