@@ -67,12 +67,34 @@ function modify(
   return base
 }
 
-const makePipeline = <Input>(links: Middleware[]): Pipeline<Input> => {
+type PipelineEventType = 'success' | 'failed'
+
+export type PipelineEventInfo<Input> = {
+  name?: string
+  input: Input
+  error?: Error
+}
+
+export type PipelineEventHandler<Input> = (
+  type: PipelineEventType,
+  info: PipelineEventInfo<Input>
+) => Promise<void>
+
+export type PipelinePlugin<Input> = { event?: PipelineEventHandler<Input> }
+
+export type PipelineOptions<Input> = {
+  plugins?: PipelinePlugin<Input>[]
+}
+
+const makePipeline = <Input>(
+  middlewares: Middleware[],
+  { plugins }: PipelineOptions<Input> = {}
+): Pipeline<Input> => {
   const pipeline: Pipeline<Input> = (modifications = []) => {
     return async (mutableInput: Input) => {
       const input = freeze(mutableInput, true)
 
-      const list = modify(links, modifications)
+      const list = modify(middlewares, modifications)
 
       const next: Next = async (input) => {
         const current = list.shift()
@@ -93,11 +115,33 @@ const makePipeline = <Input>(links: Middleware[]): Pipeline<Input> => {
       return input
 
       async function invoke(node, next, input) {
-        if (typeof node === 'function') {
-          return await node(next)(input)
-        } else {
-          return await node[1](next)(input)
+        let error
+        try {
+          if (typeof node === 'function') {
+            return await node(next)(input)
+          } else {
+            return await node[1](next)(input)
+          }
+        } catch (e) {
+          error = e
+
+          throw e
+        } finally {
+          notify(error ? 'failed' : 'success', error, input, node)
         }
+      }
+
+      function notify(
+        type: PipelineEventType,
+        error: Error,
+        input: Input,
+        node: Middleware
+      ) {
+        const info = { error, input, name: node[0] }
+
+        plugins?.forEach((plugin) => {
+          plugin.event?.(type, info)
+        })
       }
     }
   }

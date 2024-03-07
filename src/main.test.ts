@@ -1,5 +1,10 @@
-import makePipeline, { AnonymousMiddleware, Middleware } from './main.js'
+import makePipeline, {
+  AnonymousMiddleware,
+  Middleware,
+  PipelineEventHandler
+} from './main.js'
 import test from 'ava'
+import { func, verify } from 'testdouble'
 
 test('linear', async (t) => {
   const pipeline = makePipeline([
@@ -44,7 +49,7 @@ test('nested', async (t) => {
   t.deepEqual(reply, 'abc')
 })
 
-test('named links', async (t) => {
+test('named middlewares', async (t) => {
   const pipeline = makePipeline([
     (next) => async (input) => await next(input + ' b'),
     ['adds a', (next) => async (output) => await next(output + 'a')],
@@ -186,7 +191,7 @@ test('modifications are processed in the same sequence as they are provided ( ex
   t.deepEqual(reply, '1ab2c34d')
 })
 
-test('substituting links', async (t) => {
+test('substituting middlewares', async (t) => {
   const pipeline = makePipeline([
     ['foo', (next) => async (input) => await next(input + 'foo')],
     ['bar', (next) => async (input) => await next(input + ' bar')]
@@ -219,7 +224,7 @@ test('bypassing middleware processing', async (t) => {
   t.deepEqual(await pipeline([['skip', '2nd']])(''), '1 3')
 })
 
-test('appending links', async (t) => {
+test('appending middlewares', async (t) => {
   const pipeline = makePipeline([
     ['1st', (next) => async (input) => await next(input + '1')],
     ['2nd', (next) => async (input) => await next(input + ' 2')],
@@ -290,4 +295,31 @@ test('I can specify a resulting type without breaking the type-checker', async (
   const reply = await request({ foo: 'bar' })
 
   t.deepEqual(reply.foo, 'bar')
+})
+
+test('plugins', async () => {
+  const event = func<PipelineEventHandler<string>>()
+
+  const pipeline = makePipeline(
+    [
+      ['1st', (next) => async (input) => await next(input + '1')],
+      ['2nd', (next) => async (input) => await next(input + ' 2')],
+      ['3rd', (next) => async (input) => await next(input + ' 3')]
+    ],
+    {
+      plugins: [
+        {
+          event
+        }
+      ]
+    }
+  )
+
+  const request = pipeline()
+
+  await request('')
+
+  verify(event('success', { input: '1 2', name: '3rd' }))
+  verify(event('success', { input: '1', name: '2nd' }))
+  verify(event('success', { input: '', name: '1st' }))
 })

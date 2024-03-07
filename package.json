@@ -11,7 +11,8 @@
     "build": "pnpm build:cjs && pnpm build:esm",
     "format": "npx prettier . --write",
     "lint": "tsc --noEmit && eslint src --fix",
-    "test": "pnpm build && c8 ava src/*.test.ts src/*/*.test.ts && c8 report > coverage.txt"
+    "test": "pnpm build && c8 ava src/*.test.ts src/*/*.test.ts && c8 report > coverage.txt",
+    "test:watch": "nodemon -x 'pnpm test'"
   },
   "keywords": [
     "design patterns",
@@ -32,7 +33,9 @@
     "c8": "^9.1.0",
     "esbuild": "^0.19.5",
     "eslint": "^8.57.0",
+    "nodemon": "^3.1.0",
     "prettier": "^3.2.5",
+    "testdouble": "^3.20.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
   },
