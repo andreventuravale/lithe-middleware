@@ -4,7 +4,7 @@ import makePipeline, {
   PipelineEventHandler
 } from './main.js'
 import test from 'ava'
-import { func, verify } from 'testdouble'
+import { explain, func, verify } from 'testdouble'
 
 test('linear', async (t) => {
   const pipeline = makePipeline([
@@ -297,7 +297,7 @@ test('I can specify a resulting type without breaking the type-checker', async (
   t.deepEqual(reply.foo, 'bar')
 })
 
-test('plugins', async () => {
+test('plugins', async (t) => {
   const event = func<PipelineEventHandler<string>>()
 
   const pipeline = makePipeline(
@@ -319,7 +319,16 @@ test('plugins', async () => {
 
   await request('')
 
-  verify(event('success', { input: '1 2', name: '3rd' }))
-  verify(event('success', { input: '1', name: '2nd' }))
-  verify(event('success', { input: '', name: '1st' }))
+  verify(event('success', { error: undefined, input: '1 2', name: '3rd' }))
+  verify(event('success', { error: undefined, input: '1', name: '2nd' }))
+  verify(event('success', { error: undefined, input: '', name: '1st' }))
+
+  t.deepEqual(
+    explain(event).calls.map(({ args }) => args),
+    [
+      ['success', { error: undefined, input: '1 2', name: '3rd' }],
+      ['success', { error: undefined, input: '1', name: '2nd' }],
+      ['success', { error: undefined, input: '', name: '1st' }]
+    ]
+  )
 })
