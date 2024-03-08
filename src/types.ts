@@ -64,7 +64,7 @@ type InputOf<M> = M extends Middleware<infer I> ? I : never
 type MergedInputs<Ms> = Ms extends (infer I)[] ? InputOf<I> : never
 
 export type PipelineFactory = <Ms extends Middleware[]>(
-  middlewares: Middleware[]
+  middlewares?: Middleware[]
 ) => Pipeline<MergedInputs<Ms>>
 
 export type PipelineFactoryBuilder = (

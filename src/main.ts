@@ -12,7 +12,7 @@ export * from './types.js'
 
 const builder: PipelineFactoryBuilder =
   ({ plugins } = {}) =>
-  (middlewares) => {
+  (middlewares = []) => {
     const notify = (info: Readonly<PipelineEvent>) => {
       const frozen = freeze(info, true)
 

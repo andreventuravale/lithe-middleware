@@ -88,7 +88,7 @@ test('Propagates errors directly to the pipeline caller without rippling back th
 })
 
 test('An empty pipeline outputs the original input unchanged.', async (t) => {
-  const pipeline = builder()([])
+  const pipeline = builder()()
 
   const request = pipeline()
 
