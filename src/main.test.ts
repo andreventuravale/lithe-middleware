@@ -212,17 +212,17 @@ test('Skipping middlewares.', async (t) => {
   const third = (next) => async (input) => await next(input + ' 3')
 
   const pipeline = builder()([
-    ['1st', first],
-    ['2nd', second],
-    ['3rd', third]
+    ['first', first],
+    ['second', second],
+    ['third', third]
   ])
 
   t.deepEqual(await pipeline()(''), '1 2 3')
 
   t.deepEqual(
     await pipeline([
-      ['skip', '1st'],
-      ['skip', '2nd']
+      ['skip', 'first'],
+      ['skip', 'second']
     ])(''),
     ' 3'
   )
@@ -338,9 +338,9 @@ test('Request-level middlewares, also known as modifications, are incorporated a
   const forth = (next) => async (input) => await next(input + '4')
 
   const list: Middleware[] = [
-    ['1st', first],
-    ['2nd', second],
-    ['3rd', third],
+    ['first', first],
+    ['second', second],
+    ['third', third],
     ['4th', forth]
   ]
 
@@ -355,10 +355,10 @@ test('Request-level middlewares, also known as modifications, are incorporated a
   const b = (next) => async (input) => await next(input + 'b')
 
   const request = pipeline([
-    ['after', '1st', a],
+    ['after', 'first', a],
     ['after', '4th', d],
-    ['before', '3rd', c],
-    ['after', '1st', b]
+    ['before', 'third', c],
+    ['after', 'first', b]
   ])
 
   const reply = await request('')
@@ -443,51 +443,49 @@ test('(Plugins) Events.', async (t) => {
 
   const first = (next) => async (input) => await next(input + '1')
 
-  const second = (next) => async (input) => await next(input + ' 2')
+  function second(next) {
+    return async (input) => await next(input + ' 2')
+  }
 
   const third = (next) => async (input) => await next(input + ' 3')
 
-  const pipeline = factory([
-    ['1st', first],
-    ['2nd', second],
-    ['3rd', third]
-  ])
+  const pipeline = factory([['first', first], second, ['third', third]])
 
   const request = pipeline()
 
   await request('')
 
-  verify(event({ type: 'begin', input: '1 2', name: '3rd' }))
-  verify(event({ type: 'begin', input: '1', name: '2nd' }))
-  verify(event({ type: 'begin', input: '', name: '1st' }))
+  verify(event({ type: 'begin', input: '1 2', name: 'third' }))
+  verify(event({ type: 'begin', input: '1', name: 'second' }))
+  verify(event({ type: 'begin', input: '', name: 'first' }))
 
   t.deepEqual(
     explain(event).calls.map(({ args }) => args),
     [
-      [{ type: 'begin', input: '', name: '1st' }],
+      [{ type: 'begin', input: '', name: 'first' }],
       [
         {
           type: 'end',
           input: '',
-          name: '1st',
+          name: 'first',
           status: 'success'
         }
       ],
-      [{ type: 'begin', input: '1', name: '2nd' }],
+      [{ type: 'begin', input: '1', name: 'second' }],
       [
         {
           type: 'end',
           input: '1',
-          name: '2nd',
+          name: 'second',
           status: 'success'
         }
       ],
-      [{ type: 'begin', input: '1 2', name: '3rd' }],
+      [{ type: 'begin', input: '1 2', name: 'third' }],
       [
         {
           type: 'end',
           input: '1 2',
-          name: '3rd',
+          name: 'third',
           status: 'success'
         }
       ]
@@ -502,8 +500,10 @@ test('(Plugins) Events with failures.', async (t) => {
 
   const second = (next) => async (input) => await next(input + ' 2')
 
-  const third = () => async () => {
-    throw new Error('error on 3rd')
+  function third() {
+    return async () => {
+      throw new Error('error on third')
+    }
   }
 
   const pipeline = builder({
@@ -512,11 +512,7 @@ test('(Plugins) Events with failures.', async (t) => {
         event
       }
     ]
-  })([
-    ['1st', first],
-    ['2nd', second],
-    ['3rd', third]
-  ])
+  })([['first', first], ['second', second], third])
 
   const request = pipeline()
 
@@ -524,20 +520,20 @@ test('(Plugins) Events with failures.', async (t) => {
     async () => {
       await request('')
     },
-    { message: 'error on 3rd' }
+    { message: 'error on third' }
   )
 
-  verify(event({ type: 'begin', input: '', name: '1st' }))
-  verify(event({ type: 'begin', input: '1', name: '2nd' }))
-  verify(event({ type: 'begin', input: '1 2', name: '3rd' }))
+  verify(event({ type: 'begin', input: '', name: 'first' }))
+  verify(event({ type: 'begin', input: '1', name: 'second' }))
+  verify(event({ type: 'begin', input: '1 2', name: 'third' }))
 
   verify(
     event({
       type: 'end',
       input: '1 2',
-      name: '3rd',
+      name: 'third',
       status: 'failure',
-      error: new Error('error on 3rd')
+      error: new Error('error on third')
     })
   )
 })

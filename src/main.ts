@@ -14,8 +14,10 @@ const builder: PipelineFactoryBuilder =
   ({ plugins } = {}) =>
   (middlewares) => {
     const invoke = async (middleware, next, input) => {
+      const name = getName(middleware)
+
       try {
-        await notify({ type: 'begin', input, name: middleware[0] })
+        await notify({ type: 'begin', input, name })
 
         if (typeof middleware === 'function') {
           await middleware(next)(input)
@@ -26,14 +28,14 @@ const builder: PipelineFactoryBuilder =
         await notify({
           type: 'end',
           input,
-          name: middleware[0],
+          name,
           status: 'success'
         })
       } catch (error) {
         await notify({
           type: 'end',
           input,
-          name: middleware[0],
+          name,
           status: 'failure',
           error
         })
@@ -99,11 +101,7 @@ function modify(
     } else {
       const [action, name, middleware] = modification
 
-      const index = base.findIndex(
-        (existing) =>
-          name ===
-          (typeof existing === 'function' ? existing.name : existing[0])
-      )
+      const index = base.findIndex((existing) => getName(existing) === name)
 
       if (index < 0) {
         throw new Error(`could not find middleware named: "${name}"`)
@@ -120,4 +118,8 @@ function modify(
   }
 
   return base
+}
+
+function getName(middleware: Middleware) {
+  return typeof middleware === 'function' ? middleware.name : middleware[0]
 }
