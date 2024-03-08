@@ -344,7 +344,7 @@ test('Request-level middlewares, also known as modifications, are incorporated a
     ['first', first],
     ['second', second],
     ['third', third],
-    ['4th', forth]
+    ['forth', forth]
   ]
 
   const pipeline = builder()(list)
@@ -359,7 +359,7 @@ test('Request-level middlewares, also known as modifications, are incorporated a
 
   const request = pipeline([
     [a, 'after', 'first'],
-    [d, 'after', '4th'],
+    [d, 'after', 'forth'],
     [c, 'before', 'third'],
     [b, 'after', 'first']
   ])
@@ -470,6 +470,7 @@ test('(Plugins) Events.', async (t) => {
         {
           type: 'end',
           input: '',
+          output: '1',
           name: 'first',
           status: 'success'
         }
@@ -479,6 +480,7 @@ test('(Plugins) Events.', async (t) => {
         {
           type: 'end',
           input: '1',
+          output: '1 2',
           name: 'second',
           status: 'success'
         }
@@ -488,6 +490,7 @@ test('(Plugins) Events.', async (t) => {
         {
           type: 'end',
           input: '1 2',
+          output: '1 2 3',
           name: 'third',
           status: 'success'
         }
@@ -610,4 +613,17 @@ test('Interdependency among the incoming modifications.', async (t) => {
     ])(''),
     'abcdef'
   )
+})
+
+test('A middleware can stop the pipeline execution by not calling next.', async (t) => {
+  const b = (next) => async (input) => await next(input + ' b')
+
+  const a = (stop) => (next) => async (input) =>
+    stop ? input + 'a' : await next(input + 'a')
+
+  const r = (next) => async (input) => await next(input + 'r')
+
+  t.deepEqual(await builder()([b, a(false), r])()('foo'), 'foo bar')
+
+  t.deepEqual(await builder()([b, a(true), r])()('foo'), 'foo ba')
 })

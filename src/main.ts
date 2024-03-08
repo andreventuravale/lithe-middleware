@@ -27,18 +27,21 @@ const builder: PipelineFactoryBuilder =
       try {
         await notify({ type: 'begin', input, name })
 
-        if (typeof middleware === 'function') {
-          await middleware(next)(input)
-        } else {
-          await middleware[1](next)(input)
-        }
+        const fn = typeof middleware === 'function' ? middleware : middleware[1]
+
+        const handler = fn(next)
+
+        const output = freeze(await handler(input), true)
 
         await notify({
           type: 'end',
           input,
+          output,
           name,
           status: 'success'
         })
+
+        return output
       } catch (error) {
         await notify({
           type: 'end',
@@ -64,15 +67,17 @@ const builder: PipelineFactoryBuilder =
         let middleware = sequence.shift()
 
         const next: Next = async (patch) => {
-          output = patch
-
           middleware = sequence.shift()
 
-          return output
+          return patch
         }
 
         while (middleware) {
-          await invoke(middleware, next, output)
+          const current = middleware
+
+          middleware = undefined
+
+          output = await invoke(current, next, output)
         }
 
         return output as Output

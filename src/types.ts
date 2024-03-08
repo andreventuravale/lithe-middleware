@@ -38,6 +38,7 @@ export type PipelineBeginEvent = PipelineBaseEvent<'begin'>
 
 export type PipelineSuccessEvent = PipelineBaseEvent<'end'> & {
   status: 'success'
+  output: unknown
 }
 
 export type PipelineFailureEvent = PipelineBaseEvent<'end'> & {
