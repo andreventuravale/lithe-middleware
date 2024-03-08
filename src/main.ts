@@ -84,12 +84,22 @@ const builder: PipelineFactoryBuilder =
 export default builder
 
 function modify(
-  baseList: readonly Middleware[],
-  modificationList: readonly PipelineModifications[]
+  baseList: Middleware[],
+  modificationList: PipelineModifications[]
 ): Middleware[] {
-  const modifications = modificationList.slice(0)
+  const modifications = modificationList
+    .slice(0)
+    .sort((a, b) => {
+      if (['before', 'after'].includes(a[0])) {
+        const i = modificationList.filter((x) => x[1] === getName(a[2])).length
+        const j = modificationList.filter((y) => y[1] === getName(b[2])).length
+        return i - j
+      }
+      return 0
+    })
+    .reverse()
 
-  modifications.reverse()
+  modifications
 
   const base = baseList.slice(0)
 

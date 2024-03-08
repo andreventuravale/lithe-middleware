@@ -155,7 +155,7 @@ test('Positions a middleware before another.', async (t) => {
   t.deepEqual(reply, 'hello foo bar')
 })
 
-test('Positions a middleware before another ( scenario: there is a interdependency among the incoming modifications ).', async (t) => {
+test('Positions a middleware before another, with a interdependency, "hello" depends on "a", and both are incoming modifications.', async (t) => {
   const hello = (next) => async (input) => await next('hello ' + input)
 
   const b = (next) => async (input) => await next(input + ' b')
@@ -169,8 +169,8 @@ test('Positions a middleware before another ( scenario: there is a interdependen
   const pipeline = builder()([b, ['r', r]])
 
   const request = pipeline([
-    ['before', 'b', hello],
-    ['before', 'r', a]
+    ['before', 'r', a],
+    ['before', 'a', hello]
   ])
 
   const reply = await request('foo')
@@ -193,6 +193,29 @@ test('Inserts a middleware adjacent to another.', async (t) => {
 
   const request = pipeline([
     ['after', 'b', a],
+    ['after', 'r', baz]
+  ])
+
+  const reply = await request('foo')
+
+  t.deepEqual(reply, 'foo bar baz')
+})
+
+test('Inserts a middleware adjacent to another, with a interdependency, "baz" depends on "r", and both are incoming modifications.', async (t) => {
+  const b = (next) => async (input) => await next(input + ' b')
+
+  function a(next) {
+    return async (input) => await next(input + 'a')
+  }
+
+  const r = (next) => async (input) => await next(input + 'r')
+
+  const baz = (next) => async (input) => await next(input + ' baz')
+
+  const pipeline = builder()([b, a])
+
+  const request = pipeline([
+    ['after', 'a', ['r', r]],
     ['after', 'r', baz]
   ])
 
