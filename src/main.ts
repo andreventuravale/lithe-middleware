@@ -90,25 +90,31 @@ function modify(
   const modifications = modificationList
     .slice(0)
     .sort((a, b) => {
-      const m = getName(a[2])
+      const m = getName(typeof a === 'function' ? a : a[2])
+      const n = getName(typeof b === 'function' ? b : b[2])
+      const k = modificationList.indexOf(a)
+      const l = modificationList.indexOf(b)
 
-      const n = getName(b[2])
+      // if (['before'].includes(a[0])) {
+      const i = modificationList.filter((x) => x[1] === m).length + k
+      const j = modificationList.filter((y) => y[1] === n).length + l
 
-      if (['before', 'after'].includes(a[0])) {
-        const i = modificationList.filter((x) => x[1] === m).length
+      console.log(m, `(${i}) vs`, n, `(${j})`, '=>', i - j)
 
-        const j = modificationList.filter((y) => y[1] === n).length
+      return i - j
+      // }
 
-        console.log(m, `(${i}) vs`, n, `(${j})`, '=>', i - j)
-
-        return i - j
-      }
-
-      console.log(m, n, 0)
-
-      return 0
+      // return k - l
     })
     .reverse()
+
+  console.log(
+    modificationList.map((m) => getName(typeof m === 'function' ? m : m[2]))
+  )
+
+  console.log(
+    modifications.map((m) => getName(typeof m === 'function' ? m : m[2]))
+  )
 
   const base = baseList.slice(0)
 

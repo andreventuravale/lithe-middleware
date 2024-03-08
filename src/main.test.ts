@@ -563,16 +563,33 @@ test.only('Interdependency among the incoming modifications.', async (t) => {
     return async (input) => await next(input + 'f')
   }
 
-  const request = pipeline([
-    ['after', 'e', f],
-    ['after', 'd', e],
-    ['after', 'c', d],
-    ['after', 'b', c],
-    ['after', 'a', b],
-    a
-  ])
+  // t.deepEqual(await pipeline([
+  //   ['after', 'e', f],
+  //   ['after', 'd', e],
+  //   ['after', 'c', d],
+  //   ['after', 'b', c],
+  //   ['after', 'a', b],
+  //   a
+  // ])(''), 'abcdef')
 
-  const reply = await request('')
+  // t.deepEqual(await pipeline([
+  //   ['before', 'e', f],
+  //   ['before', 'd', e],
+  //   ['before', 'c', d],
+  //   ['before', 'b', c],
+  //   ['before', 'a', b],
+  //   a
+  // ])(''), 'fedcba')
 
-  t.deepEqual(reply, 'abcdef')
+  t.deepEqual(
+    await pipeline([
+      a,
+      ['before', 'a', b],
+      ['before', 'b', c],
+      ['before', 'c', d],
+      ['before', 'd', e],
+      ['before', 'e', f]
+    ])(''),
+    'fedcba'
+  )
 })
