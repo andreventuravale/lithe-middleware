@@ -1,32 +1,86 @@
+import type {
+  Middleware,
+  Next,
+  Pipeline,
+  PipelineEvent,
+  PipelineFactoryBuilder,
+  PipelineModifications
+} from './types.js'
 import { freeze } from 'immer'
 
-export type ChainHandler<Input = unknown, Output = unknown> = (
-  input: Input
-) => Promise<Output>
+export * from './types.js'
 
-export type Next = (input: unknown) => Promise<unknown>
+const builder: PipelineFactoryBuilder =
+  ({ plugins } = {}) =>
+  (middlewares) => {
+    const pipeline: Pipeline = (modifications = []) => {
+      return async (mutableInput) => {
+        const input = freeze(mutableInput, true)
 
-export type AnonymousMiddleware<Input = unknown> = (
-  next: Next
-) => ChainHandler<Input>
+        const list = modify(middlewares, modifications)
 
-export type NamedMiddleware<Input = unknown> = [
-  string,
-  AnonymousMiddleware<Input>
-]
+        const next: Next = async (input) => {
+          const current = list.shift()
 
-export type Middleware<Input = unknown> =
-  | AnonymousMiddleware<Input>
-  | NamedMiddleware<Input>
+          if (current) {
+            return await invoke(current, next, input)
+          }
 
-export type PipelineModifications<Input = unknown> =
-  | ['before' | 'after' | 'replace', name: string, Middleware<Input>]
-  | ['skip', name: string]
-  | Middleware<Input>
+          return input
+        }
 
-export type Pipeline<Input = unknown> = <Output = unknown>(
-  modifications?: PipelineModifications[]
-) => ChainHandler<Input, Output>
+        const head = list.shift()
+
+        if (head) {
+          return await invoke(head, next, input)
+        }
+
+        return input
+
+        async function invoke(node, next, input) {
+          let error
+
+          try {
+            await notify({
+              type: 'begin',
+              input,
+              name: node[0]
+            })
+
+            if (typeof node === 'function') {
+              return await node(next)(input)
+            } else {
+              return await node[1](next)(input)
+            }
+          } catch (e) {
+            error = e
+
+            throw e
+          } finally {
+            await notify({
+              type: 'end',
+              input,
+              name: node[0],
+              status: error ? 'failure' : 'success',
+              error
+            })
+          }
+        }
+
+        function notify(info: Readonly<PipelineEvent>) {
+          const frozen = freeze(info, true)
+
+          plugins?.forEach((plugin) => {
+            plugin.event?.(frozen)
+          })
+        }
+      }
+    }
+
+    return pipeline
+  }
+
+export default builder
 
 function modify(
   baseList: readonly Middleware[],
@@ -66,105 +120,3 @@ function modify(
 
   return base
 }
-
-export type PipelineEventType = 'begin' | 'end'
-
-export type PipelineBaseEvent<Input, Type extends PipelineEventType> = {
-  type: Type
-  name: string | undefined
-  input: Input
-}
-
-export type PipelineBeginEvent<Input> = PipelineBaseEvent<Input, 'begin'>
-
-export type PipelineEndEvent<Input> = PipelineBaseEvent<Input, 'end'> & {
-  status: 'success' | 'failure'
-  error?: Error
-}
-
-export type PipelineEvent<Input> =
-  | PipelineBeginEvent<Input>
-  | PipelineEndEvent<Input>
-
-export type PipelineEventHandler<Input> = (
-  event: Readonly<PipelineEvent<Input>>
-) => Promise<void>
-
-export type PipelinePlugin<Input> = { event?: PipelineEventHandler<Input> }
-
-export type PipelineOptions<Input> = {
-  plugins?: PipelinePlugin<Input>[]
-}
-
-const makePipeline = <Input>(
-  middlewares: Middleware[],
-  { plugins }: PipelineOptions<Input> = {}
-): Pipeline<Input> => {
-  const pipeline: Pipeline<Input> = (modifications = []) => {
-    return async (mutableInput: Input) => {
-      const input = freeze(mutableInput, true)
-
-      const list = modify(middlewares, modifications)
-
-      const next: Next = async (input) => {
-        const current = list.shift()
-
-        if (current) {
-          return await invoke(current, next, input)
-        }
-
-        return input
-      }
-
-      const head = list.shift()
-
-      if (head) {
-        return await invoke(head, next, input)
-      }
-
-      return input
-
-      async function invoke(node, next, input) {
-        let error
-
-        try {
-          await notify({
-            type: 'begin',
-            input,
-            name: node[0]
-          })
-
-          if (typeof node === 'function') {
-            return await node(next)(input)
-          } else {
-            return await node[1](next)(input)
-          }
-        } catch (e) {
-          error = e
-
-          throw e
-        } finally {
-          await notify({
-            type: 'end',
-            input,
-            name: node[0],
-            status: error ? 'failure' : 'success',
-            error
-          })
-        }
-      }
-
-      function notify(info: Readonly<PipelineEvent<Input>>) {
-        const frozen = freeze(info, true)
-
-        plugins?.forEach((plugin) => {
-          plugin.event?.(frozen)
-        })
-      }
-    }
-  }
-
-  return pipeline
-}
-
-export default makePipeline

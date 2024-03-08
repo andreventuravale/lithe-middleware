@@ -1,17 +1,19 @@
-import makePipeline, {
-  AnonymousMiddleware,
-  Middleware,
-  PipelineEventHandler
+import builder, {
+  type AnonymousMiddleware,
+  type Middleware,
+  type PipelineEventHandler
 } from './main.js'
 import test from 'ava'
 import { explain, func, verify } from 'testdouble'
 
 test('linear', async (t) => {
-  const pipeline = makePipeline([
-    (next) => async (text) => await next(text + ' b'),
-    (next) => async (text) => await next(text + 'a'),
-    (next) => async (text) => await next(text + 'r')
-  ])
+  const b = (next) => async (text) => await next(text + ' b')
+
+  const a = (next) => async (text) => await next(text + 'a')
+
+  const r = (next) => async (text) => await next(text + 'r')
+
+  const pipeline = builder()([b, a, r])
 
   const request = pipeline()
 
@@ -20,8 +22,8 @@ test('linear', async (t) => {
   t.deepEqual(reply, 'foo bar')
 })
 
-test('an empty pipeline returns the original output', async (t) => {
-  const pipeline = makePipeline([])
+test('an empty pipeline returns the original input as output', async (t) => {
+  const pipeline = builder()([])
 
   const request = pipeline()
 
@@ -31,16 +33,16 @@ test('an empty pipeline returns the original output', async (t) => {
 })
 
 test('nested', async (t) => {
-  const pipeline = makePipeline([
-    (next) => async (input) => await next(input + 'a'),
-    (next) => async (input) =>
-      await next(
-        await makePipeline([
-          (next) => async (input) => await next(input + 'b'),
-          (next) => async (input) => await next(input + 'c')
-        ])()(input)
-      )
-  ])
+  const a = (next) => async (input) => await next(input + 'a')
+
+  const b = (next) => async (input) => await next(input + 'b')
+
+  const c = (next) => async (input) => await next(input + 'c')
+
+  const bc = (next) => async (input) =>
+    await next(await builder()([b, c])()(input))
+
+  const pipeline = builder()([a, bc])
 
   const request = pipeline()
 
@@ -50,11 +52,13 @@ test('nested', async (t) => {
 })
 
 test('named middlewares', async (t) => {
-  const pipeline = makePipeline([
-    (next) => async (input) => await next(input + ' b'),
-    ['adds a', (next) => async (output) => await next(output + 'a')],
-    ['adds r', (next) => async (output) => await next(output + 'r')]
-  ])
+  const b = (next) => async (input) => await next(input + ' b')
+
+  const a = (next) => async (output) => await next(output + 'a')
+
+  const r = (next) => async (output) => await next(output + 'r')
+
+  const pipeline = builder()([b, ['adds a', a], ['adds r', r]])
 
   const request = pipeline()
 
@@ -64,14 +68,15 @@ test('named middlewares', async (t) => {
 })
 
 test('places a middleware prior to', async (t) => {
-  const pipeline = makePipeline([
-    (next) => async (input) => await next(input + ' b'),
-    ['adds r', (next) => async (input) => await next(input + 'r')]
-  ])
+  const b = (next) => async (input) => await next(input + ' b')
 
-  const request = pipeline([
-    ['before', 'adds r', (next) => async (input) => await next(input + 'a')]
-  ])
+  const r = (next) => async (input) => await next(input + 'r')
+
+  const pipeline = builder()([b, ['adds r', r]])
+
+  const a = (next) => async (input) => await next(input + 'a')
+
+  const request = pipeline([['before', 'adds r', a]])
 
   const reply = await request('foo')
 
@@ -79,14 +84,15 @@ test('places a middleware prior to', async (t) => {
 })
 
 test('adds a middleware subsequent to', async (t) => {
-  const pipeline = makePipeline([
-    (next) => async (input) => await next(input + ' b'),
-    ['adds a', (next) => async (input) => await next(input + 'a')]
-  ])
+  const b = (next) => async (input) => await next(input + ' b')
 
-  const request = pipeline([
-    ['after', 'adds a', (next) => async (input) => await next(input + 'r')]
-  ])
+  const a = (next) => async (input) => await next(input + 'a')
+
+  const pipeline = builder()([b, ['adds a', a]])
+
+  const r = (next) => async (input) => await next(input + 'r')
+
+  const request = pipeline([['after', 'adds a', r]])
 
   const reply = await request('foo')
 
@@ -94,14 +100,15 @@ test('adds a middleware subsequent to', async (t) => {
 })
 
 test('produces an error if the modification reference cannot be found', async (t) => {
-  const pipeline = makePipeline([
-    (next) => async (input) => await next(input + ' b'),
-    ['adds r', (next) => async (input) => await next(input + 'r')]
-  ])
+  const b = (next) => async (input) => await next(input + ' b')
 
-  const request = pipeline([
-    ['before', 'foo bar', (next) => async (input) => await next(input + 'a')]
-  ])
+  const r = (next) => async (input) => await next(input + 'r')
+
+  const pipeline = builder()([b, ['adds r', r]])
+
+  const a = (next) => async (input) => await next(input + 'a')
+
+  const request = pipeline([['before', 'foo bar', a]])
 
   await t.throwsAsync(
     async () => {
@@ -112,18 +119,19 @@ test('produces an error if the modification reference cannot be found', async (t
 })
 
 test('modifications do not affect the original input list', async (t) => {
-  const list: Middleware[] = [
-    (next) => async (input) => await next(input + ' b'),
-    ['adds r', (next) => async (input) => await next(input + 'r')]
-  ]
+  const b = (next) => async (input) => await next(input + ' b')
 
-  const pipeline = makePipeline(list)
+  const r = (next) => async (input) => await next(input + 'r')
+
+  const list: Middleware[] = [b, ['adds r', r]]
+
+  const pipeline = builder()(list)
 
   t.truthy(list.length === 2)
 
-  const request = pipeline([
-    ['before', 'adds r', (next) => async (input) => await next(input + 'a')]
-  ])
+  const a = (next) => async (input) => await next(input + 'a')
+
+  const request = pipeline([['before', 'adds r', a]])
 
   const reply = await request('foo')
 
@@ -132,14 +140,16 @@ test('modifications do not affect the original input list', async (t) => {
   t.true(list.length === 2)
 })
 
-test('normal pipelines do not affect the original input list', async (t) => {
-  const list: AnonymousMiddleware[] = [
-    (next) => async (input) => await next(input + ' b'),
-    (next) => async (input) => await next(input + 'a'),
-    (next) => async (input) => await next(input + 'r')
-  ]
+test('unmodified pipelines do not affect the original input list', async (t) => {
+  const b = (next) => async (input) => await next(input + ' b')
 
-  const pipeline = makePipeline(list)
+  const a = (next) => async (input) => await next(input + 'a')
+
+  const r = (next) => async (input) => await next(input + 'r')
+
+  const list: AnonymousMiddleware[] = [b, a, r]
+
+  const pipeline = builder()(list)
 
   t.truthy(list.length === 3)
 
@@ -153,15 +163,19 @@ test('normal pipelines do not affect the original input list', async (t) => {
 })
 
 test('modifications are processed in the same sequence as they are provided', async (t) => {
-  const list: Middleware[] = [
-    ['first', (next) => async (input) => await next(input + ' b')]
-  ]
+  const first = (next) => async (input) => await next(input + ' b')
 
-  const pipeline = makePipeline(list)
+  const list: Middleware[] = [['first', first]]
+
+  const pipeline = builder()(list)
+
+  const a = (next) => async (input) => await next(input + 'a')
+
+  const r = (next) => async (input) => await next(input + 'r')
 
   const request = pipeline([
-    ['after', 'first', (next) => async (input) => await next(input + 'a')],
-    ['after', 'first', (next) => async (input) => await next(input + 'r')]
+    ['after', 'first', a],
+    ['after', 'first', r]
   ])
 
   const reply = await request('foo')
@@ -170,20 +184,36 @@ test('modifications are processed in the same sequence as they are provided', as
 })
 
 test('modifications are processed in the same sequence as they are provided ( extended case )', async (t) => {
+  const first = (next) => async (input) => await next(input + '1')
+
+  const second = (next) => async (input) => await next(input + '2')
+
+  const third = (next) => async (input) => await next(input + '3')
+
+  const forth = (next) => async (input) => await next(input + '4')
+
   const list: Middleware[] = [
-    ['1st', (next) => async (input) => await next(input + '1')],
-    ['2nd', (next) => async (input) => await next(input + '2')],
-    ['3rd', (next) => async (input) => await next(input + '3')],
-    ['4th', (next) => async (input) => await next(input + '4')]
+    ['1st', first],
+    ['2nd', second],
+    ['3rd', third],
+    ['4th', forth]
   ]
 
-  const pipeline = makePipeline(list)
+  const pipeline = builder()(list)
+
+  const a = (next) => async (input) => await next(input + 'a')
+
+  const d = (next) => async (input) => await next(input + 'd')
+
+  const c = (next) => async (input) => await next(input + 'c')
+
+  const b = (next) => async (input) => await next(input + 'b')
 
   const request = pipeline([
-    ['after', '1st', (next) => async (input) => await next(input + 'a')],
-    ['after', '4th', (next) => async (input) => await next(input + 'd')],
-    ['before', '3rd', (next) => async (input) => await next(input + 'c')],
-    ['after', '1st', (next) => async (input) => await next(input + 'b')]
+    ['after', '1st', a],
+    ['after', '4th', d],
+    ['before', '3rd', c],
+    ['after', '1st', b]
   ])
 
   const reply = await request('')
@@ -192,31 +222,41 @@ test('modifications are processed in the same sequence as they are provided ( ex
 })
 
 test('substituting middlewares', async (t) => {
-  const pipeline = makePipeline([
-    ['foo', (next) => async (input) => await next(input + 'foo')],
-    ['bar', (next) => async (input) => await next(input + ' bar')]
+  const foo = (next) => async (input) => await next(input + 'foo')
+
+  const bar = (next) => async (input) => await next(input + ' bar')
+
+  const pipeline = builder()([
+    ['foo', foo],
+    ['bar', bar]
   ])
 
   t.deepEqual(await pipeline()(''), 'foo bar')
 
+  const qux = (next) => async (input) => await next(input + 'qux')
+
+  const waldo = (next) => async (input) => await next(input + ' waldo')
+
   t.deepEqual(
     await pipeline([
-      ['replace', 'foo', (next) => async (input) => await next(input + 'qux')],
-      [
-        'replace',
-        'bar',
-        (next) => async (input) => await next(input + ' waldo')
-      ]
+      ['replace', 'foo', qux],
+      ['replace', 'bar', waldo]
     ])(''),
     'qux waldo'
   )
 })
 
 test('bypassing middleware processing', async (t) => {
-  const pipeline = makePipeline([
-    ['1st', (next) => async (input) => await next(input + '1')],
-    ['2nd', (next) => async (input) => await next(input + ' 2')],
-    ['3rd', (next) => async (input) => await next(input + ' 3')]
+  const a = (next) => async (input) => await next(input + '1')
+
+  const b = (next) => async (input) => await next(input + ' 2')
+
+  const c = (next) => async (input) => await next(input + ' 3')
+
+  const pipeline = builder()([
+    ['1st', a],
+    ['2nd', b],
+    ['3rd', c]
   ])
 
   t.deepEqual(await pipeline()(''), '1 2 3')
@@ -225,95 +265,111 @@ test('bypassing middleware processing', async (t) => {
 })
 
 test('appending middlewares', async (t) => {
-  const pipeline = makePipeline([
-    ['1st', (next) => async (input) => await next(input + '1')],
-    ['2nd', (next) => async (input) => await next(input + ' 2')],
-    ['3rd', (next) => async (input) => await next(input + ' 3')]
+  const a = (next) => async (input) => await next(input + '1')
+
+  const b = (next) => async (input) => await next(input + ' 2')
+
+  const c = (next) => async (input) => await next(input + ' 3')
+
+  const pipeline = builder()([
+    ['1st', a],
+    ['2nd', b],
+    ['3rd', c]
   ])
 
-  t.deepEqual(
-    await pipeline([
-      (next) => async (input) => await next(input + ' 4'),
-      (next) => async (input) => await next(input + ' 5')
-    ])(''),
-    '1 2 3 4 5'
-  )
+  const d = (next) => async (input) => await next(input + ' 4')
+
+  const e = (next) => async (input) => await next(input + ' 5')
+
+  t.deepEqual(await pipeline([d, e])(''), '1 2 3 4 5')
 })
 
 test('does allow mutations', async (t) => {
-  const pipeline = makePipeline([
-    (next) => async (input: { foo: string }) => {
-      input.foo = 'baz'
+  type Foo = { foo: string }
 
-      return await next(input)
-    }
-  ])
+  const foo = (next) => async (input: Foo) => {
+    input.foo = 'baz'
 
-  await t.throwsAsync(async () => await pipeline()({ foo: 'bar' }), {
+    return await next(input)
+  }
+
+  const factory = builder()
+
+  const pipeline = factory([foo])
+
+  const request = pipeline()
+
+  await t.throwsAsync(async () => await request({ foo: 'bar' }), {
     message: /Cannot assign to read only property 'foo'/
   })
 })
 
 test('does allow deep mutations', async (t) => {
-  const pipeline = makePipeline([
-    (next) => async (input: { foo: { bar: string } }) => {
-      input.foo.bar = 'qux'
+  const foo = (next) => async (input: { foo: { bar: string } }) => {
+    input.foo.bar = 'qux'
 
-      return await next(input)
-    }
-  ])
+    return await next(input)
+  }
 
-  await t.throwsAsync(async () => await pipeline()({ foo: { bar: 'baz' } }), {
+  const request = builder()([foo])()
+
+  await t.throwsAsync(async () => await request({ foo: { bar: 'baz' } }), {
     message: /Cannot assign to read only property 'bar'/
   })
 })
 
-test('does allow deep mutations inside arrays', async (t) => {
-  const pipeline = makePipeline([
-    (next) => async (input: { foo: Array<number | { bar: string }> }) => {
-      const entry = input.foo[1] as { bar: string }
+test('does not allow deep mutations inside arrays', async (t) => {
+  const fooBar = (next) => async (input: { foo: Array<{ bar: string }> }) => {
+    const entry = input.foo[1]
 
-      entry.bar = 'qux'
+    entry.bar = 'qux'
 
-      return await next(input)
-    }
-  ])
+    return await next(input)
+  }
 
-  await t.throwsAsync(
-    async () => await pipeline()({ foo: [0, { bar: 'baz' }] }),
-    {
-      message: /Cannot assign to read only property 'bar'/
-    }
-  )
+  const request = builder()([fooBar])()
+
+  await t.throwsAsync(async () => await request({ foo: [0, { bar: 'baz' }] }), {
+    message: /Cannot assign to read only property 'bar'/
+  })
 })
 
-test('I can specify a resulting type without breaking the type-checker', async (t) => {
-  const pipeline = makePipeline([(next) => async (input) => await next(input)])
+test('given a typeless pipeline, I can type the output at the request-level, using generics, without any type-checker complains', async (t) => {
+  const typelessFactory = builder()
 
-  const request = pipeline<{ foo: { bar: string } }>()
+  const typelessMiddleware = (next) => async (input) => await next(input)
 
-  const reply = await request({ foo: 'bar' })
+  const typelessPipeline = typelessFactory([typelessMiddleware])
+
+  const typelessRequest = typelessPipeline()
+
+  const reply = await typelessRequest<{ foo: { bar: string } }>({ foo: 'bar' })
 
   t.deepEqual(reply.foo, 'bar')
 })
 
 test('plugins - events', async (t) => {
-  const event = func<PipelineEventHandler<string>>()
+  const event = func<PipelineEventHandler>()
 
-  const pipeline = makePipeline(
-    [
-      ['1st', (next) => async (input) => await next(input + '1')],
-      ['2nd', (next) => async (input) => await next(input + ' 2')],
-      ['3rd', (next) => async (input) => await next(input + ' 3')]
-    ],
-    {
-      plugins: [
-        {
-          event
-        }
-      ]
-    }
-  )
+  const factory = builder({
+    plugins: [
+      {
+        event
+      }
+    ]
+  })
+
+  const one = (next) => async (input) => await next(input + '1')
+
+  const two = (next) => async (input) => await next(input + ' 2')
+
+  const three = (next) => async (input) => await next(input + ' 3')
+
+  const pipeline = factory([
+    ['1st', one],
+    ['2nd', two],
+    ['3rd', three]
+  ])
 
   const request = pipeline()
 
@@ -361,27 +417,27 @@ test('plugins - events', async (t) => {
 })
 
 test('plugins - events with failures', async (t) => {
-  const event = func<PipelineEventHandler<string>>()
+  const event = func<PipelineEventHandler>()
 
-  const pipeline = makePipeline(
-    [
-      ['1st', (next) => async (input) => await next(input + '1')],
-      ['2nd', (next) => async (input) => await next(input + ' 2')],
-      [
-        '3rd',
-        () => async () => {
-          throw new Error('error on 3rd')
-        }
-      ]
-    ],
-    {
-      plugins: [
-        {
-          event
-        }
-      ]
-    }
-  )
+  const a = (next) => async (input) => await next(input + '1')
+
+  const b = (next) => async (input) => await next(input + ' 2')
+
+  const c = () => async () => {
+    throw new Error('error on 3rd')
+  }
+
+  const pipeline = builder({
+    plugins: [
+      {
+        event
+      }
+    ]
+  })([
+    ['1st', a],
+    ['2nd', b],
+    ['3rd', c]
+  ])
 
   const request = pipeline()
 
