@@ -13,69 +13,67 @@ export * from './types.js'
 const builder: PipelineFactoryBuilder =
   ({ plugins } = {}) =>
   (middlewares) => {
-    const pipeline: Pipeline = (modifications = []) => {
-      return async (mutableInput) => {
-        const input = freeze(mutableInput, true)
+    const invoke = async (node, next, input) => {
+      let error
 
+      try {
+        await notify({ type: 'begin', input, name: node[0] })
+
+        if (typeof node === 'function') {
+          return await node(next)(input)
+        } else {
+          return await node[1](next)(input)
+        }
+      } catch (e) {
+        error = e
+
+        throw e
+      } finally {
+        await notify({
+          type: 'end',
+          input,
+          name: node[0],
+          status: error ? 'failure' : 'success',
+          error
+        })
+      }
+    }
+
+    const notify = (info: Readonly<PipelineEvent>) => {
+      const frozen = freeze(info, true)
+
+      plugins?.forEach((plugin) => {
+        plugin.event?.(frozen)
+      })
+    }
+
+    const pipeline: Pipeline =
+      (modifications = []) =>
+      async <Output>(input) => {
         const list = modify(middlewares, modifications)
 
-        const next: Next = async (input) => {
-          const current = list.shift()
-
-          if (current) {
-            return await invoke(current, next, input)
-          }
-
+        if (list.length === 0) {
           return input
         }
 
-        const head = list.shift()
+        let output = freeze(input, true)
 
-        if (head) {
-          return await invoke(head, next, input)
+        let current = list.shift()
+
+        const next: Next = async (patch) => {
+          output = patch
+
+          current = list.shift()
+
+          return output
         }
 
-        return input
-
-        async function invoke(node, next, input) {
-          let error
-
-          try {
-            await notify({
-              type: 'begin',
-              input,
-              name: node[0]
-            })
-
-            if (typeof node === 'function') {
-              return await node(next)(input)
-            } else {
-              return await node[1](next)(input)
-            }
-          } catch (e) {
-            error = e
-
-            throw e
-          } finally {
-            await notify({
-              type: 'end',
-              input,
-              name: node[0],
-              status: error ? 'failure' : 'success',
-              error
-            })
-          }
+        while (current) {
+          await invoke(current, next, output)
         }
 
-        function notify(info: Readonly<PipelineEvent>) {
-          const frozen = freeze(info, true)
-
-          plugins?.forEach((plugin) => {
-            plugin.event?.(frozen)
-          })
-        }
+        return output as Output
       }
-    }
 
     return pipeline
   }

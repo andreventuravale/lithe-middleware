@@ -22,6 +22,68 @@ test('Happy path.', async (t) => {
   t.deepEqual(reply, 'foo bar')
 })
 
+test('Modifications on a initial empty middleware list.', async (t) => {
+  const b = (next) => async (text) => await next(text + ' b')
+
+  const a = (next) => async (text) => await next(text + 'a')
+
+  const r = (next) => async (text) => await next(text + 'r')
+
+  const pipeline = builder()([])
+
+  const request = pipeline([b, a, r])
+
+  const reply = await request('foo')
+
+  t.deepEqual(reply, 'foo bar')
+})
+
+/**
+ * This is by design.
+ */
+test('Propagates errors directly to the pipeline caller without rippling back through the preceding middlewares.', async (t) => {
+  const bCatch = func()
+  const aCatch = func()
+
+  const b = (next) => async (text) => {
+    try {
+      return await next(text + ' b')
+    } catch (error) {
+      bCatch(error)
+
+      throw error
+    }
+  }
+
+  const a = (next) => async (text) => {
+    try {
+      return await next(text + 'a')
+    } catch (error) {
+      aCatch(error)
+
+      throw error
+    }
+  }
+
+  const r = () => async () => {
+    throw new Error('rrrrrrrrrrrr')
+  }
+
+  const pipeline = builder()([b, a, r])
+
+  const request = pipeline()
+
+  await t.throwsAsync(
+    async () => {
+      await request('foo')
+    },
+    { message: 'rrrrrrrrrrrr' }
+  )
+
+  verify(bCatch(), { times: 0, ignoreExtraArgs: true })
+  verify(aCatch(), { times: 0, ignoreExtraArgs: true })
+})
+
 test('An empty pipeline outputs the original input unchanged.', async (t) => {
   const pipeline = builder()([])
 
@@ -403,17 +465,16 @@ test('(Plugins) Events.', async (t) => {
     explain(event).calls.map(({ args }) => args),
     [
       [{ type: 'begin', input: '', name: '1st' }],
-      [{ type: 'begin', input: '1', name: '2nd' }],
-      [{ type: 'begin', input: '1 2', name: '3rd' }],
       [
         {
           type: 'end',
-          input: '1 2',
-          name: '3rd',
+          input: '',
+          name: '1st',
           status: 'success',
           error: undefined
         }
       ],
+      [{ type: 'begin', input: '1', name: '2nd' }],
       [
         {
           type: 'end',
@@ -423,11 +484,12 @@ test('(Plugins) Events.', async (t) => {
           error: undefined
         }
       ],
+      [{ type: 'begin', input: '1 2', name: '3rd' }],
       [
         {
           type: 'end',
-          input: '',
-          name: '1st',
+          input: '1 2',
+          name: '3rd',
           status: 'success',
           error: undefined
         }
@@ -477,26 +539,6 @@ test('(Plugins) Events with failures.', async (t) => {
       type: 'end',
       input: '1 2',
       name: '3rd',
-      status: 'failure',
-      error: new Error('error on 3rd')
-    })
-  )
-
-  verify(
-    event({
-      type: 'end',
-      input: '1',
-      name: '2nd',
-      status: 'failure',
-      error: new Error('error on 3rd')
-    })
-  )
-
-  verify(
-    event({
-      type: 'end',
-      input: '',
-      name: '1st',
       status: 'failure',
       error: new Error('error on 3rd')
     })
