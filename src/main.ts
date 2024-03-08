@@ -90,21 +90,34 @@ function modify(
   const modifications = modificationList
     .slice(0)
     .sort((a, b) => {
-      const m = getName(typeof a === 'function' ? a : a[2])
-      const n = getName(typeof b === 'function' ? b : b[2])
-      const k = modificationList.indexOf(a)
-      const l = modificationList.indexOf(b)
+      const nameA = getName(typeof a === 'function' ? a : a[2])
 
-      // if (['before'].includes(a[0])) {
-      const i = modificationList.filter((x) => x[1] === m).length + k
-      const j = modificationList.filter((y) => y[1] === n).length + l
+      const nameB = getName(typeof b === 'function' ? b : b[2])
 
-      console.log(m, `(${i}) vs`, n, `(${j})`, '=>', i - j)
+      const indexA = modificationList.indexOf(a)
 
-      return i - j
-      // }
+      const indexB = modificationList.indexOf(b)
 
-      // return k - l
+      const weightA = modificationList.filter((x) => x[1] === nameA).length
+
+      const weightB = modificationList.filter((y) => y[1] === nameB).length
+
+      const x = weightA + indexA
+
+      const y = weightB + indexB
+
+      console.log({
+        nameA,
+        nameB,
+        indexA,
+        indexB,
+        weightA,
+        weightB,
+        x,
+        y
+      })
+
+      return x - y
     })
     .reverse()
 
