@@ -92,9 +92,12 @@ function modify(
     .sort((a, b) => {
       if (['before', 'after'].includes(a[0])) {
         const i = modificationList.filter((x) => x[1] === getName(a[2])).length
+
         const j = modificationList.filter((y) => y[1] === getName(b[2])).length
+
         return i - j
       }
+
       return 0
     })
     .reverse()
