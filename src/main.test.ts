@@ -155,6 +155,29 @@ test('Positions a middleware before another.', async (t) => {
   t.deepEqual(reply, 'hello foo bar')
 })
 
+test('Positions a middleware before another ( scenario: there is a interdependency among the incoming modifications ).', async (t) => {
+  const hello = (next) => async (input) => await next('hello ' + input)
+
+  const b = (next) => async (input) => await next(input + ' b')
+
+  function a(next) {
+    return async (input) => await next(input + 'a')
+  }
+
+  const r = (next) => async (input) => await next(input + 'r')
+
+  const pipeline = builder()([b, ['r', r]])
+
+  const request = pipeline([
+    ['before', 'b', hello],
+    ['before', 'r', a]
+  ])
+
+  const reply = await request('foo')
+
+  t.deepEqual(reply, 'hello foo bar')
+})
+
 test('Inserts a middleware adjacent to another.', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
