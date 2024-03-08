@@ -94,6 +94,10 @@ function modify(
 
       const nameB = getName(typeof b === 'function' ? b : b[2])
 
+      const dirA = getName(typeof a === 'function' ? a : a[2])
+
+      const dirB = getName(typeof b === 'function' ? b : b[2])
+
       const indexA = modificationList.indexOf(a)
 
       const indexB = modificationList.indexOf(b)
@@ -109,6 +113,8 @@ function modify(
       console.log({
         nameA,
         nameB,
+        dirA,
+        dirB,
         indexA,
         indexB,
         weightA,
