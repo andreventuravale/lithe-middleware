@@ -13,6 +13,14 @@ export * from './types.js'
 const builder: PipelineFactoryBuilder =
   ({ plugins } = {}) =>
   (middlewares) => {
+    const notify = (info: Readonly<PipelineEvent>) => {
+      const frozen = freeze(info, true)
+
+      plugins?.forEach((plugin) => {
+        plugin.event?.(frozen)
+      })
+    }
+
     const invoke = async (middleware, next, input) => {
       const name = getName(middleware)
 
@@ -42,14 +50,6 @@ const builder: PipelineFactoryBuilder =
 
         throw error
       }
-    }
-
-    const notify = (info: Readonly<PipelineEvent>) => {
-      const frozen = freeze(info, true)
-
-      plugins?.forEach((plugin) => {
-        plugin.event?.(frozen)
-      })
     }
 
     const pipeline: Pipeline =
