@@ -116,7 +116,9 @@ test('Inserts a middleware adjacent to another.', async (t) => {
 test('Replacing middlewares.', async (t) => {
   const foo = (next) => async (input) => await next(input + 'foo')
 
-  const bar = (next) => async (input) => await next(input + ' bar')
+  function bar(next) {
+    return async (input) => await next(input + ' bar')
+  }
 
   const pipeline = builder()([
     ['foo', foo],
@@ -139,7 +141,9 @@ test('Replacing middlewares.', async (t) => {
 })
 
 test('Skipping middlewares.', async (t) => {
-  const first = (next) => async (input) => await next(input + '1')
+  function first(next) {
+    return async (input) => await next(input + '1')
+  }
 
   const second = (next) => async (input) => await next(input + ' 2')
 
@@ -153,7 +157,13 @@ test('Skipping middlewares.', async (t) => {
 
   t.deepEqual(await pipeline()(''), '1 2 3')
 
-  t.deepEqual(await pipeline([['skip', '2nd']])(''), '1 3')
+  t.deepEqual(
+    await pipeline([
+      ['skip', '1st'],
+      ['skip', '2nd']
+    ])(''),
+    ' 3'
+  )
 })
 
 test('Appending middlewares.', async (t) => {
@@ -163,11 +173,7 @@ test('Appending middlewares.', async (t) => {
 
   const third = (next) => async (input) => await next(input + ' 3')
 
-  const pipeline = builder()([
-    ['1st', first],
-    ['2nd', second],
-    ['3rd', third]
-  ])
+  const pipeline = builder()([first, second, third])
 
   const d = (next) => async (input) => await next(input + ' 4')
 
