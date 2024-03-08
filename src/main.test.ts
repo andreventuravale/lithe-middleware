@@ -39,7 +39,10 @@ test('Modifications on a initial empty middleware list.', async (t) => {
 })
 
 /**
- * This is by design.
+ * This behavior is intentional. Errors do not propagate back through the middleware that has already been executed:
+ *
+ * After a middleware has been executed, it is permanently dismissed and not revisited.
+ * There is no possibility of disguising an error with another error resulting from a previous middleware being unexpectedly affected.
  */
 test('Propagates errors directly to the pipeline caller without rippling back through the preceding middlewares.', async (t) => {
   const bCatch = func()
