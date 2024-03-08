@@ -87,45 +87,7 @@ function modify(
   pipelineLevelList: Middleware[],
   requestLevelList: PipelineModification[]
 ): Middleware[] {
-  const weightMap = {}
-
-  for (const modification of requestLevelList) {
-    const type = modification[0]
-
-    const name = getName(modification)
-
-    switch (type) {
-      case 'before':
-      case 'after':
-      case 'skip':
-      case 'replace':
-        {
-          const ref = modification[1]
-
-          weightMap[ref] ??= 0
-
-          weightMap[ref] += (weightMap[name] ?? 0) + 1
-        }
-        break
-
-      default:
-        weightMap[name] ??= 0
-    }
-  }
-
-  const modifications = requestLevelList.slice(0).sort((a, b) => {
-    const nameA = getName(a)
-
-    const nameB = getName(b)
-
-    return (weightMap[nameB] ?? 0) - (weightMap[nameA] ?? 0)
-  })
-
-  console.log(weightMap)
-
-  console.log(requestLevelList.map(getName))
-
-  console.log(modifications.map(getName))
+  const modifications = requestLevelList.slice(0).reverse()
 
   const base = pipelineLevelList.slice(0)
 

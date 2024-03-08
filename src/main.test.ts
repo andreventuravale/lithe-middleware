@@ -7,11 +7,11 @@ import test from 'ava'
 import { explain, func, verify } from 'testdouble'
 
 test('Happy path.', async (t) => {
-  const b = (next) => async (text) => await next(text + ' b')
+  const b = (next) => async (input) => await next(input + ' b')
 
-  const a = (next) => async (text) => await next(text + 'a')
+  const a = (next) => async (input) => await next(input + 'a')
 
-  const r = (next) => async (text) => await next(text + 'r')
+  const r = (next) => async (input) => await next(input + 'r')
 
   const pipeline = builder()([b, a, r])
 
@@ -23,11 +23,11 @@ test('Happy path.', async (t) => {
 })
 
 test('Modifications on a initial empty middleware list.', async (t) => {
-  const b = (next) => async (text) => await next(text + ' b')
+  const b = (next) => async (input) => await next(input + ' b')
 
-  const a = (next) => async (text) => await next(text + 'a')
+  const a = (next) => async (input) => await next(input + 'a')
 
-  const r = (next) => async (text) => await next(text + 'r')
+  const r = (next) => async (input) => await next(input + 'r')
 
   const pipeline = builder()([])
 
@@ -48,9 +48,9 @@ test('Propagates errors directly to the pipeline caller without rippling back th
   const bCatch = func()
   const aCatch = func()
 
-  const b = (next) => async (text) => {
+  const b = (next) => async (input) => {
     try {
-      return await next(text + ' b')
+      return await next(input + ' b')
     } catch (error) {
       bCatch(error)
 
@@ -58,9 +58,9 @@ test('Propagates errors directly to the pipeline caller without rippling back th
     }
   }
 
-  const a = (next) => async (text) => {
+  const a = (next) => async (input) => {
     try {
-      return await next(text + 'a')
+      return await next(input + 'a')
     } catch (error) {
       aCatch(error)
 
@@ -539,60 +539,4 @@ test('(Plugins) Events with failures.', async (t) => {
       error: new Error('error on third')
     })
   )
-})
-
-test('Interdependency among the incoming modifications.', async (t) => {
-  const pipeline = builder()([])
-
-  function a(next) {
-    return async (input) => await next(input + 'a')
-  }
-  function b(next) {
-    return async (input) => await next(input + 'b')
-  }
-  function c(next) {
-    return async (input) => await next(input + 'c')
-  }
-  function d(next) {
-    return async (input) => await next(input + 'd')
-  }
-  function e(next) {
-    return async (input) => await next(input + 'e')
-  }
-  function f(next) {
-    return async (input) => await next(input + 'f')
-  }
-
-  t.deepEqual(
-    await pipeline([
-      ['after', 'e', f],
-      ['after', 'd', e],
-      ['after', 'c', d],
-      ['after', 'b', c],
-      ['after', 'a', b],
-      a
-    ])(''),
-    'abcdef'
-  )
-
-  // t.deepEqual(await pipeline([
-  //   ['before', 'e', f],
-  //   ['before', 'd', e],
-  //   ['before', 'c', d],
-  //   ['before', 'b', c],
-  //   ['before', 'a', b],
-  //   a
-  // ])(''), 'fedcba')
-
-  // t.deepEqual(
-  //   await pipeline([
-  //     a,
-  //     ['before', 'a', b],
-  //     ['before', 'b', c],
-  //     ['before', 'c', d],
-  //     ['before', 'd', e],
-  //     ['before', 'e', f]
-  //   ])(''),
-  //   'fedcba'
-  // )
 })
