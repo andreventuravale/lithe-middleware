@@ -6,7 +6,7 @@ import builder, {
 import test from 'ava'
 import { explain, func, verify } from 'testdouble'
 
-test('linear', async (t) => {
+test('happy path', async (t) => {
   const b = (next) => async (text) => await next(text + ' b')
 
   const a = (next) => async (text) => await next(text + 'a')
@@ -359,16 +359,16 @@ test('plugins - events', async (t) => {
     ]
   })
 
-  const one = (next) => async (input) => await next(input + '1')
+  const first = (next) => async (input) => await next(input + '1')
 
-  const two = (next) => async (input) => await next(input + ' 2')
+  const second = (next) => async (input) => await next(input + ' 2')
 
-  const three = (next) => async (input) => await next(input + ' 3')
+  const third = (next) => async (input) => await next(input + ' 3')
 
   const pipeline = factory([
-    ['1st', one],
-    ['2nd', two],
-    ['3rd', three]
+    ['1st', first],
+    ['2nd', second],
+    ['3rd', third]
   ])
 
   const request = pipeline()
