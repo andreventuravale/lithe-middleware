@@ -1,6 +1,6 @@
 {
   "name": "lithe-middleware",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "type": "module",
   "main": "dist/cjs/main.js",
   "module": "dist/esm/main.js",
@@ -42,7 +42,10 @@
   "files": [
     "./dist/**/main.d.ts",
     "./dist/**/main.js.map",
-    "./dist/**/main.js"
+    "./dist/**/main.js",
+    "./dist/**/types.d.ts",
+    "./dist/**/types.js.map",
+    "./dist/**/types.js"
   ],
   "exports": {
     ".": {
