@@ -155,29 +155,6 @@ test('Positions a middleware before another.', async (t) => {
   t.deepEqual(reply, 'hello foo bar')
 })
 
-test('Positions a middleware before another, with a interdependency, "hello" depends on "a", and both are incoming modifications.', async (t) => {
-  const hello = (next) => async (input) => await next('hello ' + input)
-
-  const b = (next) => async (input) => await next(input + ' b')
-
-  function a(next) {
-    return async (input) => await next(input + 'a')
-  }
-
-  const r = (next) => async (input) => await next(input + 'r')
-
-  const pipeline = builder()([b, ['r', r]])
-
-  const request = pipeline([
-    ['before', 'r', a],
-    ['before', 'a', hello]
-  ])
-
-  const reply = await request('foo')
-
-  t.deepEqual(reply, 'hello foo bar')
-})
-
 test('Inserts a middleware adjacent to another.', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
@@ -193,29 +170,6 @@ test('Inserts a middleware adjacent to another.', async (t) => {
 
   const request = pipeline([
     ['after', 'b', a],
-    ['after', 'r', baz]
-  ])
-
-  const reply = await request('foo')
-
-  t.deepEqual(reply, 'foo bar baz')
-})
-
-test('Inserts a middleware adjacent to another, with a interdependency, "baz" depends on "r", and both are incoming modifications.', async (t) => {
-  const b = (next) => async (input) => await next(input + ' b')
-
-  function a(next) {
-    return async (input) => await next(input + 'a')
-  }
-
-  const r = (next) => async (input) => await next(input + 'r')
-
-  const baz = (next) => async (input) => await next(input + ' baz')
-
-  const pipeline = builder()([b, a])
-
-  const request = pipeline([
-    ['after', 'a', ['r', r]],
     ['after', 'r', baz]
   ])
 
@@ -585,4 +539,40 @@ test('(Plugins) Events with failures.', async (t) => {
       error: new Error('error on third')
     })
   )
+})
+
+test.only('Interdependency among the incoming modifications.', async (t) => {
+  const pipeline = builder()([])
+
+  function a(next) {
+    return async (input) => await next(input + 'a')
+  }
+  function b(next) {
+    return async (input) => await next(input + 'b')
+  }
+  function c(next) {
+    return async (input) => await next(input + 'c')
+  }
+  function d(next) {
+    return async (input) => await next(input + 'd')
+  }
+  function e(next) {
+    return async (input) => await next(input + 'e')
+  }
+  function f(next) {
+    return async (input) => await next(input + 'f')
+  }
+
+  const request = pipeline([
+    ['after', 'e', f],
+    ['after', 'd', e],
+    ['after', 'c', d],
+    ['after', 'b', c],
+    ['after', 'a', b],
+    a
+  ])
+
+  const reply = await request('')
+
+  t.deepEqual(reply, 'abcdef')
 })

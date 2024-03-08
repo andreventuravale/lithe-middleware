@@ -90,13 +90,21 @@ function modify(
   const modifications = modificationList
     .slice(0)
     .sort((a, b) => {
-      if (['before', 'after'].includes(a[0])) {
-        const i = modificationList.filter((x) => x[1] === getName(a[2])).length
+      const m = getName(a[2])
 
-        const j = modificationList.filter((y) => y[1] === getName(b[2])).length
+      const n = getName(b[2])
+
+      if (['before', 'after'].includes(a[0])) {
+        const i = modificationList.filter((x) => x[1] === m).length
+
+        const j = modificationList.filter((y) => y[1] === n).length
+
+        console.log(m, `(${i}) vs`, n, `(${j})`, '=>', i - j)
 
         return i - j
       }
+
+      console.log(m, n, 0)
 
       return 0
     })
@@ -131,6 +139,10 @@ function modify(
   return base
 }
 
-function getName(middleware: Middleware) {
+function getName(middleware?: Middleware) {
+  if (!middleware) {
+    return
+  }
+
   return typeof middleware === 'function' ? middleware.name : middleware[0]
 }
