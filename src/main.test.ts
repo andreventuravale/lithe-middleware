@@ -32,7 +32,7 @@ test('an empty pipeline returns the original input as is', async (t) => {
   t.deepEqual(reply, 'foo')
 })
 
-test('nested', async (t) => {
+test('nested pipelines', async (t) => {
   const a = (next) => async (input) => await next(input + 'a')
 
   const b = (next) => async (input) => await next(input + 'b')
@@ -67,7 +67,7 @@ test('named middlewares', async (t) => {
   t.deepEqual(reply, 'foo bar')
 })
 
-test('places a middleware prior to', async (t) => {
+test('places a middleware prior to another', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
   const r = (next) => async (input) => await next(input + 'r')
@@ -83,7 +83,7 @@ test('places a middleware prior to', async (t) => {
   t.deepEqual(reply, 'foo bar')
 })
 
-test('adds a middleware subsequent to', async (t) => {
+test('places a middleware next to another', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
   const a = (next) => async (input) => await next(input + 'a')
@@ -99,7 +99,7 @@ test('adds a middleware subsequent to', async (t) => {
   t.deepEqual(reply, 'foo bar')
 })
 
-test('produces an error if the modification reference cannot be found', async (t) => {
+test('throws a error if the modification reference cannot be found', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
   const r = (next) => async (input) => await next(input + 'r')
@@ -118,7 +118,7 @@ test('produces an error if the modification reference cannot be found', async (t
   )
 })
 
-test('modifications do not affect the original input list', async (t) => {
+test('request-level middlewares ( aka modifications ) do not affect the pipeline-level middleware list', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
   const r = (next) => async (input) => await next(input + 'r')
@@ -140,7 +140,7 @@ test('modifications do not affect the original input list', async (t) => {
   t.true(list.length === 2)
 })
 
-test('unmodified pipelines do not affect the original input list', async (t) => {
+test('unmodified pipelines do not affect the original middleware list', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
   const a = (next) => async (input) => await next(input + 'a')
@@ -162,7 +162,7 @@ test('unmodified pipelines do not affect the original input list', async (t) => 
   t.truthy(list.length === 3)
 })
 
-test('modifications are processed in the same sequence as they are provided', async (t) => {
+test('request-level middlewares ( aka modifications ) are called as part of the pipeline-level', async (t) => {
   const first = (next) => async (input) => await next(input + ' b')
 
   const list: Middleware[] = [['first', first]]
@@ -183,7 +183,7 @@ test('modifications are processed in the same sequence as they are provided', as
   t.deepEqual(reply, 'foo bar')
 })
 
-test('modifications are processed in the same sequence as they are provided ( extended case )', async (t) => {
+test('request-level middlewares ( aka modifications ) are called as part of the pipeline-level ( extended case )', async (t) => {
   const first = (next) => async (input) => await next(input + '1')
 
   const second = (next) => async (input) => await next(input + '2')
@@ -221,7 +221,7 @@ test('modifications are processed in the same sequence as they are provided ( ex
   t.deepEqual(reply, '1ab2c34d')
 })
 
-test('substituting middlewares', async (t) => {
+test('replacing middlewares', async (t) => {
   const foo = (next) => async (input) => await next(input + 'foo')
 
   const bar = (next) => async (input) => await next(input + ' bar')
@@ -246,7 +246,7 @@ test('substituting middlewares', async (t) => {
   )
 })
 
-test('bypassing middleware processing', async (t) => {
+test('skipping middlewares', async (t) => {
   const first = (next) => async (input) => await next(input + '1')
 
   const second = (next) => async (input) => await next(input + ' 2')
