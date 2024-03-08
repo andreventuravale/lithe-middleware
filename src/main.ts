@@ -101,7 +101,9 @@ function modify(
       const [action, name, middleware] = modification
 
       const index = base.findIndex(
-        (existing) => typeof existing !== 'function' && name === existing[0]
+        (existing) =>
+          name ===
+          (typeof existing === 'function' ? existing.name : existing[0])
       )
 
       if (index < 0) {

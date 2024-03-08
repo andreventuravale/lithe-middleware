@@ -6,7 +6,7 @@ import builder, {
 import test from 'ava'
 import { explain, func, verify } from 'testdouble'
 
-test('happy path', async (t) => {
+test('Happy path.', async (t) => {
   const b = (next) => async (text) => await next(text + ' b')
 
   const a = (next) => async (text) => await next(text + 'a')
@@ -22,7 +22,7 @@ test('happy path', async (t) => {
   t.deepEqual(reply, 'foo bar')
 })
 
-test('an empty pipeline returns the original input as is', async (t) => {
+test('An empty pipeline outputs the original input unchanged.', async (t) => {
   const pipeline = builder()([])
 
   const request = pipeline()
@@ -32,7 +32,7 @@ test('an empty pipeline returns the original input as is', async (t) => {
   t.deepEqual(reply, 'foo')
 })
 
-test('nested pipelines', async (t) => {
+test('Nested pipelines.', async (t) => {
   const a = (next) => async (input) => await next(input + 'a')
 
   const b = (next) => async (input) => await next(input + 'b')
@@ -51,7 +51,7 @@ test('nested pipelines', async (t) => {
   t.deepEqual(reply, 'abc')
 })
 
-test('named middlewares', async (t) => {
+test('Named middlewares (tuple mode).', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
   const a = (next) => async (output) => await next(output + 'a')
@@ -67,39 +67,116 @@ test('named middlewares', async (t) => {
   t.deepEqual(reply, 'foo bar')
 })
 
-test('places a middleware prior to another', async (t) => {
+test('Positions a middleware before another.', async (t) => {
+  const hello = (next) => async (input) => await next('hello ' + input)
+
   const b = (next) => async (input) => await next(input + ' b')
+
+  function a(next) {
+    return async (input) => await next(input + 'a')
+  }
 
   const r = (next) => async (input) => await next(input + 'r')
 
-  const pipeline = builder()([b, ['adds r', r]])
+  const pipeline = builder()([b, ['r', r]])
 
-  const a = (next) => async (input) => await next(input + 'a')
-
-  const request = pipeline([['before', 'adds r', a]])
+  const request = pipeline([
+    ['before', 'b', hello],
+    ['before', 'r', a]
+  ])
 
   const reply = await request('foo')
 
-  t.deepEqual(reply, 'foo bar')
+  t.deepEqual(reply, 'hello foo bar')
 })
 
-test('places a middleware next to another', async (t) => {
+test('Inserts a middleware adjacent to another.', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
   const a = (next) => async (input) => await next(input + 'a')
 
-  const pipeline = builder()([b, ['adds a', a]])
+  function r(next) {
+    return async (input) => await next(input + 'r')
+  }
 
-  const r = (next) => async (input) => await next(input + 'r')
+  const baz = (next) => async (input) => await next(input + ' baz')
 
-  const request = pipeline([['after', 'adds a', r]])
+  const pipeline = builder()([b, r])
+
+  const request = pipeline([
+    ['after', 'b', a],
+    ['after', 'r', baz]
+  ])
 
   const reply = await request('foo')
 
-  t.deepEqual(reply, 'foo bar')
+  t.deepEqual(reply, 'foo bar baz')
 })
 
-test('throws a error if the modification reference cannot be found', async (t) => {
+test('Replacing middlewares.', async (t) => {
+  const foo = (next) => async (input) => await next(input + 'foo')
+
+  const bar = (next) => async (input) => await next(input + ' bar')
+
+  const pipeline = builder()([
+    ['foo', foo],
+    ['bar', bar]
+  ])
+
+  t.deepEqual(await pipeline()(''), 'foo bar')
+
+  const qux = (next) => async (input) => await next(input + 'qux')
+
+  const waldo = (next) => async (input) => await next(input + ' waldo')
+
+  t.deepEqual(
+    await pipeline([
+      ['replace', 'foo', qux],
+      ['replace', 'bar', waldo]
+    ])(''),
+    'qux waldo'
+  )
+})
+
+test('Skipping middlewares.', async (t) => {
+  const first = (next) => async (input) => await next(input + '1')
+
+  const second = (next) => async (input) => await next(input + ' 2')
+
+  const third = (next) => async (input) => await next(input + ' 3')
+
+  const pipeline = builder()([
+    ['1st', first],
+    ['2nd', second],
+    ['3rd', third]
+  ])
+
+  t.deepEqual(await pipeline()(''), '1 2 3')
+
+  t.deepEqual(await pipeline([['skip', '2nd']])(''), '1 3')
+})
+
+test('Appending middlewares.', async (t) => {
+  const first = (next) => async (input) => await next(input + '1')
+
+  const second = (next) => async (input) => await next(input + ' 2')
+
+  const third = (next) => async (input) => await next(input + ' 3')
+
+  const pipeline = builder()([
+    ['1st', first],
+    ['2nd', second],
+    ['3rd', third]
+  ])
+
+  const d = (next) => async (input) => await next(input + ' 4')
+
+  const e = (next) => async (input) => await next(input + ' 5')
+
+  t.deepEqual(await pipeline([d, e])(''), '1 2 3 4 5')
+})
+
+test('Generates an error if the referenced modification cannot be located.', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
   const r = (next) => async (input) => await next(input + 'r')
@@ -118,7 +195,7 @@ test('throws a error if the modification reference cannot be found', async (t) =
   )
 })
 
-test('request-level middlewares ( aka modifications ) do not affect the pipeline-level middleware list', async (t) => {
+test('Modifications made at the request level, also known as request-level middlewares, do not influence the middleware list at the pipeline level.', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
   const r = (next) => async (input) => await next(input + 'r')
@@ -140,7 +217,7 @@ test('request-level middlewares ( aka modifications ) do not affect the pipeline
   t.true(list.length === 2)
 })
 
-test('unmodified pipelines do not affect the original middleware list', async (t) => {
+test('Not providing any middlewares at the request level does not impact the list of middlewares at the pipeline level.', async (t) => {
   const b = (next) => async (input) => await next(input + ' b')
 
   const a = (next) => async (input) => await next(input + 'a')
@@ -149,11 +226,11 @@ test('unmodified pipelines do not affect the original middleware list', async (t
 
   const list: AnonymousMiddleware[] = [b, a, r]
 
-  const pipeline = builder()(list)
+  const factory = builder()(list)
 
   t.truthy(list.length === 3)
 
-  const request = pipeline()
+  const request = factory()
 
   const reply = await request('foo')
 
@@ -162,7 +239,7 @@ test('unmodified pipelines do not affect the original middleware list', async (t
   t.truthy(list.length === 3)
 })
 
-test('request-level middlewares ( aka modifications ) are called as part of the pipeline-level', async (t) => {
+test('Request-level middlewares, also known as modifications, are executed within the scope of the pipeline-level process.', async (t) => {
   const first = (next) => async (input) => await next(input + ' b')
 
   const list: Middleware[] = [['first', first]]
@@ -183,7 +260,7 @@ test('request-level middlewares ( aka modifications ) are called as part of the 
   t.deepEqual(reply, 'foo bar')
 })
 
-test('request-level middlewares ( aka modifications ) are called as part of the pipeline-level ( extended case )', async (t) => {
+test('Request-level middlewares, also known as modifications, are incorporated and executed as part of the broader pipeline-level operations.', async (t) => {
   const first = (next) => async (input) => await next(input + '1')
 
   const second = (next) => async (input) => await next(input + '2')
@@ -221,70 +298,7 @@ test('request-level middlewares ( aka modifications ) are called as part of the 
   t.deepEqual(reply, '1ab2c34d')
 })
 
-test('replacing middlewares', async (t) => {
-  const foo = (next) => async (input) => await next(input + 'foo')
-
-  const bar = (next) => async (input) => await next(input + ' bar')
-
-  const pipeline = builder()([
-    ['foo', foo],
-    ['bar', bar]
-  ])
-
-  t.deepEqual(await pipeline()(''), 'foo bar')
-
-  const qux = (next) => async (input) => await next(input + 'qux')
-
-  const waldo = (next) => async (input) => await next(input + ' waldo')
-
-  t.deepEqual(
-    await pipeline([
-      ['replace', 'foo', qux],
-      ['replace', 'bar', waldo]
-    ])(''),
-    'qux waldo'
-  )
-})
-
-test('skipping middlewares', async (t) => {
-  const first = (next) => async (input) => await next(input + '1')
-
-  const second = (next) => async (input) => await next(input + ' 2')
-
-  const third = (next) => async (input) => await next(input + ' 3')
-
-  const pipeline = builder()([
-    ['1st', first],
-    ['2nd', second],
-    ['3rd', third]
-  ])
-
-  t.deepEqual(await pipeline()(''), '1 2 3')
-
-  t.deepEqual(await pipeline([['skip', '2nd']])(''), '1 3')
-})
-
-test('appending middlewares', async (t) => {
-  const first = (next) => async (input) => await next(input + '1')
-
-  const second = (next) => async (input) => await next(input + ' 2')
-
-  const third = (next) => async (input) => await next(input + ' 3')
-
-  const pipeline = builder()([
-    ['1st', first],
-    ['2nd', second],
-    ['3rd', third]
-  ])
-
-  const d = (next) => async (input) => await next(input + ' 4')
-
-  const e = (next) => async (input) => await next(input + ' 5')
-
-  t.deepEqual(await pipeline([d, e])(''), '1 2 3 4 5')
-})
-
-test('does not allow mutations', async (t) => {
+test('Forbids changes to the input.', async (t) => {
   type Foo = { foo: string }
 
   const foo = (next) => async (input: Foo) => {
@@ -304,7 +318,7 @@ test('does not allow mutations', async (t) => {
   })
 })
 
-test('does not allow deep mutations', async (t) => {
+test('Forbids changes to the input (deep).', async (t) => {
   const foo = (next) => async (input: { foo: { bar: string } }) => {
     input.foo.bar = 'qux'
 
@@ -318,7 +332,7 @@ test('does not allow deep mutations', async (t) => {
   })
 })
 
-test('does not allow deep mutations inside arrays', async (t) => {
+test('Forbids changes to the input (deep in arrays).', async (t) => {
   const fooBar = (next) => async (input: { foo: Array<{ bar: string }> }) => {
     const entry = input.foo[1]
 
@@ -334,7 +348,7 @@ test('does not allow deep mutations inside arrays', async (t) => {
   })
 })
 
-test('given a typeless pipeline, I can type the output at the request-level, using generics, without any type-checker complains', async (t) => {
+test('In a typeless pipeline, you can specify the output type at the request level using generics, without encountering any issues from the type checker.', async (t) => {
   const typelessFactory = builder()
 
   const typelessMiddleware = (next) => async (input) => await next(input)
@@ -348,7 +362,7 @@ test('given a typeless pipeline, I can type the output at the request-level, usi
   t.deepEqual(reply.foo, 'bar')
 })
 
-test('plugins - events', async (t) => {
+test('(Plugins) Events.', async (t) => {
   const event = func<PipelineEventHandler>()
 
   const factory = builder({
@@ -416,7 +430,7 @@ test('plugins - events', async (t) => {
   )
 })
 
-test('plugins - events with failures', async (t) => {
+test('(Plugins) Events with failures.', async (t) => {
   const event = func<PipelineEventHandler>()
 
   const first = (next) => async (input) => await next(input + '1')
