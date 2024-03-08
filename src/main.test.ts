@@ -187,7 +187,7 @@ test('Generates an error if the referenced modification cannot be located.', asy
 
   const r = (next) => async (input) => await next(input + 'r')
 
-  const pipeline = builder()([b, ['adds r', r]])
+  const pipeline = builder()([b, r])
 
   const a = (next) => async (input) => await next(input + 'a')
 
