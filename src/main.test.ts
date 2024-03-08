@@ -22,7 +22,7 @@ test('happy path', async (t) => {
   t.deepEqual(reply, 'foo bar')
 })
 
-test('an empty pipeline returns the original input as output', async (t) => {
+test('an empty pipeline returns the original input as is', async (t) => {
   const pipeline = builder()([])
 
   const request = pipeline()
