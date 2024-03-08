@@ -13,29 +13,32 @@ export * from './types.js'
 const builder: PipelineFactoryBuilder =
   ({ plugins } = {}) =>
   (middlewares) => {
-    const invoke = async (node, next, input) => {
-      let error
-
+    const invoke = async (middleware, next, input) => {
       try {
-        await notify({ type: 'begin', input, name: node[0] })
+        await notify({ type: 'begin', input, name: middleware[0] })
 
-        if (typeof node === 'function') {
-          return await node(next)(input)
+        if (typeof middleware === 'function') {
+          await middleware(next)(input)
         } else {
-          return await node[1](next)(input)
+          await middleware[1](next)(input)
         }
-      } catch (e) {
-        error = e
 
-        throw e
-      } finally {
         await notify({
           type: 'end',
           input,
-          name: node[0],
-          status: error ? 'failure' : 'success',
+          name: middleware[0],
+          status: 'success'
+        })
+      } catch (error) {
+        await notify({
+          type: 'end',
+          input,
+          name: middleware[0],
+          status: 'failure',
           error
         })
+
+        throw error
       }
     }
 
@@ -50,26 +53,24 @@ const builder: PipelineFactoryBuilder =
     const pipeline: Pipeline =
       (modifications = []) =>
       async <Output>(input) => {
-        const list = modify(middlewares, modifications)
+        const sequence = modify(middlewares, modifications)
 
-        if (list.length === 0) {
-          return input
-        }
+        if (sequence.length === 0) return input
 
         let output = freeze(input, true)
 
-        let current = list.shift()
+        let middleware = sequence.shift()
 
         const next: Next = async (patch) => {
           output = patch
 
-          current = list.shift()
+          middleware = sequence.shift()
 
           return output
         }
 
-        while (current) {
-          await invoke(current, next, output)
+        while (middleware) {
+          await invoke(middleware, next, output)
         }
 
         return output as Output

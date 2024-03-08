@@ -36,10 +36,16 @@ export type PipelineBaseEvent<Type extends PipelineEventType> = {
 
 export type PipelineBeginEvent = PipelineBaseEvent<'begin'>
 
-export type PipelineEndEvent = PipelineBaseEvent<'end'> & {
-  status: 'success' | 'failure'
-  error?: Error
+export type PipelineSuccessEvent = PipelineBaseEvent<'end'> & {
+  status: 'success'
 }
+
+export type PipelineFailureEvent = PipelineBaseEvent<'end'> & {
+  status: 'failure'
+  error: Error
+}
+
+export type PipelineEndEvent = PipelineSuccessEvent | PipelineFailureEvent
 
 export type PipelineEvent = PipelineBeginEvent | PipelineEndEvent
 

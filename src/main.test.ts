@@ -470,8 +470,7 @@ test('(Plugins) Events.', async (t) => {
           type: 'end',
           input: '',
           name: '1st',
-          status: 'success',
-          error: undefined
+          status: 'success'
         }
       ],
       [{ type: 'begin', input: '1', name: '2nd' }],
@@ -480,8 +479,7 @@ test('(Plugins) Events.', async (t) => {
           type: 'end',
           input: '1',
           name: '2nd',
-          status: 'success',
-          error: undefined
+          status: 'success'
         }
       ],
       [{ type: 'begin', input: '1 2', name: '3rd' }],
@@ -490,8 +488,7 @@ test('(Plugins) Events.', async (t) => {
           type: 'end',
           input: '1 2',
           name: '3rd',
-          status: 'success',
-          error: undefined
+          status: 'success'
         }
       ]
     ]
