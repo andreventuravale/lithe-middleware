@@ -87,35 +87,91 @@ function modify(
   pipelineLevelList: Middleware[],
   requestLevelList: PipelineModification[]
 ): Middleware[] {
-  const modifications = requestLevelList.slice(0).reverse()
+  const graph = {}
 
-  const base = pipelineLevelList.slice(0)
+  const weightMap = {}
 
-  const initialLength = base.length
+  const weightOf = (x) =>
+    x in graph
+      ? graph[x].reduce((sum, ref) => sum + weightOf(ref), graph[x].length)
+      : 0
+
+  for (const modification of requestLevelList) {
+    const type = modification[1]
+
+    const name = getName(modification)
+
+    switch (type) {
+      case 'before':
+      case 'after':
+      case 'skip':
+      case 'replace':
+        {
+          const ref = modification[2]
+
+          graph[ref] ??= []
+
+          graph[ref].push(name)
+
+          graph[ref] = graph[ref].concat(graph[name] ?? [])
+        }
+        break
+    }
+  }
+
+  for (const modification of requestLevelList) {
+    const name = getName(modification)
+
+    weightMap[name] = weightOf(name)
+  }
+
+  const modifications = requestLevelList.slice(0).sort((a, b) => {
+    const nameA = getName(a)
+    const nameB = getName(b)
+    const x = weightMap[nameA]
+    const y = weightMap[nameB]
+    const i = requestLevelList.indexOf(a)
+    const j = requestLevelList.indexOf(b)
+    const k = x === y ? i : x
+    const l = x === y ? j : y
+    return l - k
+  })
+
+  const result = pipelineLevelList.slice(0)
+
+  const initialLength = result.length
 
   for (const modification of modifications) {
     if (typeof modification === 'function') {
-      base.splice(initialLength, 0, modification)
-    } else {
-      const [action, name, middleware] = modification
+      result.splice(initialLength, 0, modification)
+    } else if (modification.length === 3) {
+      const [middleware, action, ref] = modification
 
-      const index = base.findIndex((existing) => getName(existing) === name)
+      const index = result.findIndex((existing) => getName(existing) === ref)
+
+      if (index < 0) {
+        throw new Error(`could not find middleware named: "${ref}"`)
+      }
+
+      if (action === 'replace') {
+        result[index][1] = middleware
+      } else {
+        result.splice(action === 'before' ? index : index + 1, 0, middleware)
+      }
+    } else {
+      const [, name] = modification
+
+      const index = result.findIndex((existing) => getName(existing) === name)
 
       if (index < 0) {
         throw new Error(`could not find middleware named: "${name}"`)
       }
 
-      if (action === 'replace') {
-        base[index][1] = middleware
-      } else if (action === 'skip') {
-        base.splice(index, 1)
-      } else {
-        base.splice(action === 'before' ? index : index + 1, 0, middleware)
-      }
+      result.splice(index, 1)
     }
   }
 
-  return base
+  return result
 }
 
 function getName(item?: Middleware | PipelineModification) {
@@ -133,8 +189,6 @@ function getName(item?: Middleware | PipelineModification) {
   }
 
   if (Array.isArray(item) && item.length === 3) {
-    return getName(item[2])
+    return getName(item[0])
   }
-
-  return undefined
 }

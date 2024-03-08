@@ -18,7 +18,7 @@ export type Middleware<Input = unknown> =
   | NamedMiddleware<Input>
 
 export type PipelineModification<Input = unknown> =
-  | ['before' | 'after' | 'replace', name: string, Middleware<Input>]
+  | [Middleware<Input>, 'before' | 'after' | 'replace', ref: string]
   | ['skip', name: string]
   | Middleware<Input>
 

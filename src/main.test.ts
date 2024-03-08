@@ -146,8 +146,8 @@ test('Positions a middleware before another.', async (t) => {
   const pipeline = builder()([b, ['r', r]])
 
   const request = pipeline([
-    ['before', 'b', hello],
-    ['before', 'r', a]
+    [hello, 'before', 'b'],
+    [a, 'before', 'r']
   ])
 
   const reply = await request('foo')
@@ -169,8 +169,8 @@ test('Inserts a middleware adjacent to another.', async (t) => {
   const pipeline = builder()([b, r])
 
   const request = pipeline([
-    ['after', 'b', a],
-    ['after', 'r', baz]
+    [a, 'after', 'b'],
+    [baz, 'after', 'r']
   ])
 
   const reply = await request('foo')
@@ -198,8 +198,8 @@ test('Replacing middlewares.', async (t) => {
 
   t.deepEqual(
     await pipeline([
-      ['replace', 'foo', qux],
-      ['replace', 'bar', waldo]
+      [qux, 'replace', 'foo'],
+      [waldo, 'replace', 'bar']
     ])(''),
     'qux waldo'
   )
@@ -256,7 +256,7 @@ test('Generates an error if the referenced modification cannot be located.', asy
 
   const a = (next) => async (input) => await next(input + 'a')
 
-  const request = pipeline([['before', 'foo bar', a]])
+  const request = pipeline([[a, 'before', 'foo bar']])
 
   await t.throwsAsync(
     async () => {
@@ -279,7 +279,7 @@ test('Modifications made at the request level, also known as request-level middl
 
   const a = (next) => async (input) => await next(input + 'a')
 
-  const request = pipeline([['before', 'adds r', a]])
+  const request = pipeline([[a, 'before', 'adds r']])
 
   const reply = await request('foo')
 
@@ -322,8 +322,8 @@ test('Request-level middlewares, also known as modifications, are executed withi
   const r = (next) => async (input) => await next(input + 'r')
 
   const request = pipeline([
-    ['after', 'first', a],
-    ['after', 'first', r]
+    [a, 'after', 'first'],
+    [r, 'after', 'first']
   ])
 
   const reply = await request('foo')
@@ -358,10 +358,10 @@ test('Request-level middlewares, also known as modifications, are incorporated a
   const b = (next) => async (input) => await next(input + 'b')
 
   const request = pipeline([
-    ['after', 'first', a],
-    ['after', '4th', d],
-    ['before', 'third', c],
-    ['after', 'first', b]
+    [a, 'after', 'first'],
+    [d, 'after', '4th'],
+    [c, 'before', 'third'],
+    [b, 'after', 'first']
   ])
 
   const reply = await request('')
@@ -538,5 +538,76 @@ test('(Plugins) Events with failures.', async (t) => {
       status: 'failure',
       error: new Error('error on third')
     })
+  )
+})
+
+test('Interdependency among the incoming modifications.', async (t) => {
+  const pipeline = builder()([])
+
+  function a(next) {
+    return async (input) => await next(input + 'a')
+  }
+  function b(next) {
+    return async (input) => await next(input + 'b')
+  }
+  function c(next) {
+    return async (input) => await next(input + 'c')
+  }
+  function d(next) {
+    return async (input) => await next(input + 'd')
+  }
+  function e(next) {
+    return async (input) => await next(input + 'e')
+  }
+  function f(next) {
+    return async (input) => await next(input + 'f')
+  }
+
+  t.deepEqual(
+    await pipeline([
+      a,
+      [b, 'before', 'a'],
+      [c, 'before', 'b'],
+      [d, 'before', 'c'],
+      [e, 'before', 'd'],
+      [f, 'before', 'e']
+    ])(''),
+    'fedcba'
+  )
+
+  t.deepEqual(
+    await pipeline([
+      [f, 'before', 'e'],
+      [e, 'before', 'd'],
+      [d, 'before', 'c'],
+      [c, 'before', 'b'],
+      [b, 'before', 'a'],
+      a
+    ])(''),
+    'fedcba'
+  )
+
+  t.deepEqual(
+    await pipeline([
+      a,
+      [b, 'after', 'a'],
+      [c, 'after', 'b'],
+      [d, 'after', 'c'],
+      [e, 'after', 'd'],
+      [f, 'after', 'e']
+    ])(''),
+    'abcdef'
+  )
+
+  t.deepEqual(
+    await pipeline([
+      [f, 'after', 'e'],
+      [e, 'after', 'd'],
+      [d, 'after', 'c'],
+      [c, 'after', 'b'],
+      [b, 'after', 'a'],
+      a
+    ])(''),
+    'abcdef'
   )
 })
