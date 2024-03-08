@@ -541,7 +541,7 @@ test('(Plugins) Events with failures.', async (t) => {
   )
 })
 
-test.only('Interdependency among the incoming modifications.', async (t) => {
+test('Interdependency among the incoming modifications.', async (t) => {
   const pipeline = builder()([])
 
   function a(next) {
@@ -563,14 +563,17 @@ test.only('Interdependency among the incoming modifications.', async (t) => {
     return async (input) => await next(input + 'f')
   }
 
-  // t.deepEqual(await pipeline([
-  //   ['after', 'e', f],
-  //   ['after', 'd', e],
-  //   ['after', 'c', d],
-  //   ['after', 'b', c],
-  //   ['after', 'a', b],
-  //   a
-  // ])(''), 'abcdef')
+  t.deepEqual(
+    await pipeline([
+      ['after', 'e', f],
+      ['after', 'd', e],
+      ['after', 'c', d],
+      ['after', 'b', c],
+      ['after', 'a', b],
+      a
+    ])(''),
+    'abcdef'
+  )
 
   // t.deepEqual(await pipeline([
   //   ['before', 'e', f],
@@ -581,15 +584,15 @@ test.only('Interdependency among the incoming modifications.', async (t) => {
   //   a
   // ])(''), 'fedcba')
 
-  t.deepEqual(
-    await pipeline([
-      a,
-      ['before', 'a', b],
-      ['before', 'b', c],
-      ['before', 'c', d],
-      ['before', 'd', e],
-      ['before', 'e', f]
-    ])(''),
-    'fedcba'
-  )
+  // t.deepEqual(
+  //   await pipeline([
+  //     a,
+  //     ['before', 'a', b],
+  //     ['before', 'b', c],
+  //     ['before', 'c', d],
+  //     ['before', 'd', e],
+  //     ['before', 'e', f]
+  //   ])(''),
+  //   'fedcba'
+  // )
 })

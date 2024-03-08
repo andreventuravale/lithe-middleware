@@ -4,7 +4,7 @@ import type {
   Pipeline,
   PipelineEvent,
   PipelineFactoryBuilder,
-  PipelineModifications
+  PipelineModification
 } from './types.js'
 import { freeze } from 'immer'
 
@@ -84,58 +84,50 @@ const builder: PipelineFactoryBuilder =
 export default builder
 
 function modify(
-  baseList: Middleware[],
-  modificationList: PipelineModifications[]
+  pipelineLevelList: Middleware[],
+  requestLevelList: PipelineModification[]
 ): Middleware[] {
-  const modifications = modificationList
-    .slice(0)
-    .sort((a, b) => {
-      const nameA = getName(typeof a === 'function' ? a : a[2])
+  const weightMap = {}
 
-      const nameB = getName(typeof b === 'function' ? b : b[2])
+  for (const modification of requestLevelList) {
+    const type = modification[0]
 
-      const dirA = getName(typeof a === 'function' ? a : a[2])
+    const name = getName(modification)
 
-      const dirB = getName(typeof b === 'function' ? b : b[2])
+    switch (type) {
+      case 'before':
+      case 'after':
+      case 'skip':
+      case 'replace':
+        {
+          const ref = modification[1]
 
-      const indexA = modificationList.indexOf(a)
+          weightMap[ref] ??= 0
 
-      const indexB = modificationList.indexOf(b)
+          weightMap[ref] += (weightMap[name] ?? 0) + 1
+        }
+        break
 
-      const weightA = modificationList.filter((x) => x[1] === nameA).length
+      default:
+        weightMap[name] ??= 0
+    }
+  }
 
-      const weightB = modificationList.filter((y) => y[1] === nameB).length
+  const modifications = requestLevelList.slice(0).sort((a, b) => {
+    const nameA = getName(a)
 
-      const x = weightA + indexA
+    const nameB = getName(b)
 
-      const y = weightB + indexB
+    return (weightMap[nameB] ?? 0) - (weightMap[nameA] ?? 0)
+  })
 
-      console.log({
-        nameA,
-        nameB,
-        dirA,
-        dirB,
-        indexA,
-        indexB,
-        weightA,
-        weightB,
-        x,
-        y
-      })
+  console.log(weightMap)
 
-      return x - y
-    })
-    .reverse()
+  console.log(requestLevelList.map(getName))
 
-  console.log(
-    modificationList.map((m) => getName(typeof m === 'function' ? m : m[2]))
-  )
+  console.log(modifications.map(getName))
 
-  console.log(
-    modifications.map((m) => getName(typeof m === 'function' ? m : m[2]))
-  )
-
-  const base = baseList.slice(0)
+  const base = pipelineLevelList.slice(0)
 
   const initialLength = base.length
 
@@ -164,10 +156,23 @@ function modify(
   return base
 }
 
-function getName(middleware?: Middleware) {
-  if (!middleware) {
-    return
+function getName(item?: Middleware | PipelineModification) {
+  if (typeof item === 'function') {
+    return item.name
   }
 
-  return typeof middleware === 'function' ? middleware.name : middleware[0]
+  if (
+    Array.isArray(item) &&
+    item.length === 2 &&
+    typeof item[0] === 'string' &&
+    typeof item[1] === 'function'
+  ) {
+    return item[0]
+  }
+
+  if (Array.isArray(item) && item.length === 3) {
+    return getName(item[2])
+  }
+
+  return undefined
 }

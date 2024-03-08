@@ -17,13 +17,13 @@ export type Middleware<Input = unknown> =
   | AnonymousMiddleware<Input>
   | NamedMiddleware<Input>
 
-export type PipelineModifications<Input = unknown> =
+export type PipelineModification<Input = unknown> =
   | ['before' | 'after' | 'replace', name: string, Middleware<Input>]
   | ['skip', name: string]
   | Middleware<Input>
 
 export type Pipeline<Input = unknown> = (
-  modifications?: PipelineModifications[]
+  modifications?: PipelineModification[]
 ) => MiddlewareHandler<Input>
 
 export type PipelineEventType = 'begin' | 'end'
