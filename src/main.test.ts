@@ -247,16 +247,16 @@ test('substituting middlewares', async (t) => {
 })
 
 test('bypassing middleware processing', async (t) => {
-  const a = (next) => async (input) => await next(input + '1')
+  const first = (next) => async (input) => await next(input + '1')
 
-  const b = (next) => async (input) => await next(input + ' 2')
+  const second = (next) => async (input) => await next(input + ' 2')
 
-  const c = (next) => async (input) => await next(input + ' 3')
+  const third = (next) => async (input) => await next(input + ' 3')
 
   const pipeline = builder()([
-    ['1st', a],
-    ['2nd', b],
-    ['3rd', c]
+    ['1st', first],
+    ['2nd', second],
+    ['3rd', third]
   ])
 
   t.deepEqual(await pipeline()(''), '1 2 3')
@@ -265,16 +265,16 @@ test('bypassing middleware processing', async (t) => {
 })
 
 test('appending middlewares', async (t) => {
-  const a = (next) => async (input) => await next(input + '1')
+  const first = (next) => async (input) => await next(input + '1')
 
-  const b = (next) => async (input) => await next(input + ' 2')
+  const second = (next) => async (input) => await next(input + ' 2')
 
-  const c = (next) => async (input) => await next(input + ' 3')
+  const third = (next) => async (input) => await next(input + ' 3')
 
   const pipeline = builder()([
-    ['1st', a],
-    ['2nd', b],
-    ['3rd', c]
+    ['1st', first],
+    ['2nd', second],
+    ['3rd', third]
   ])
 
   const d = (next) => async (input) => await next(input + ' 4')
@@ -284,7 +284,7 @@ test('appending middlewares', async (t) => {
   t.deepEqual(await pipeline([d, e])(''), '1 2 3 4 5')
 })
 
-test('does allow mutations', async (t) => {
+test('does not allow mutations', async (t) => {
   type Foo = { foo: string }
 
   const foo = (next) => async (input: Foo) => {
@@ -304,7 +304,7 @@ test('does allow mutations', async (t) => {
   })
 })
 
-test('does allow deep mutations', async (t) => {
+test('does not allow deep mutations', async (t) => {
   const foo = (next) => async (input: { foo: { bar: string } }) => {
     input.foo.bar = 'qux'
 
@@ -419,11 +419,11 @@ test('plugins - events', async (t) => {
 test('plugins - events with failures', async (t) => {
   const event = func<PipelineEventHandler>()
 
-  const a = (next) => async (input) => await next(input + '1')
+  const first = (next) => async (input) => await next(input + '1')
 
-  const b = (next) => async (input) => await next(input + ' 2')
+  const second = (next) => async (input) => await next(input + ' 2')
 
-  const c = () => async () => {
+  const third = () => async () => {
     throw new Error('error on 3rd')
   }
 
@@ -434,9 +434,9 @@ test('plugins - events with failures', async (t) => {
       }
     ]
   })([
-    ['1st', a],
-    ['2nd', b],
-    ['3rd', c]
+    ['1st', first],
+    ['2nd', second],
+    ['3rd', third]
   ])
 
   const request = pipeline()
