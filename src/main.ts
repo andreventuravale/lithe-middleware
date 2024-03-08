@@ -102,8 +102,6 @@ function modify(
     })
     .reverse()
 
-  modifications
-
   const base = baseList.slice(0)
 
   const initialLength = base.length
