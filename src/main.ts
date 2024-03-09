@@ -2,11 +2,10 @@ import type {
   Middleware,
   Next,
   Pipeline,
-  PipelineBeginEvent,
+  PipelineEventsWithOutput,
+  PipelineEventsWithoutOutput,
   PipelineFactoryBuilder,
-  PipelineFailureEvent,
-  PipelineModification,
-  PipelineSuccessEvent
+  PipelineModification
 } from './types.js'
 import { freeze, produce } from 'immer'
 import { randomUUID } from 'node:crypto'
@@ -22,7 +21,7 @@ const builder: PipelineFactoryBuilder =
       const rid = randomUUID()
 
       const notifyWithOutput = async (
-        event: Readonly<PipelineSuccessEvent>
+        event: Readonly<PipelineEventsWithOutput>
       ) => {
         let output = event.output
 
@@ -37,7 +36,7 @@ const builder: PipelineFactoryBuilder =
       }
 
       const notifyWithoutOutput = async (
-        event: Readonly<PipelineBeginEvent | PipelineFailureEvent>
+        event: Readonly<PipelineEventsWithoutOutput>
       ) => {
         const frozenEvent = freeze(event, true)
 
@@ -53,7 +52,7 @@ const builder: PipelineFactoryBuilder =
 
         try {
           await notifyWithoutOutput({
-            type: 'begin',
+            type: 'invocation-begin',
             input,
             name,
             pid,
@@ -70,7 +69,7 @@ const builder: PipelineFactoryBuilder =
 
           const finalOutput = freeze(
             (await notifyWithOutput({
-              type: 'end',
+              type: 'invocation-end',
               input,
               output,
               name,
@@ -85,7 +84,7 @@ const builder: PipelineFactoryBuilder =
           return finalOutput
         } catch (error) {
           await notifyWithoutOutput({
-            type: 'end',
+            type: 'invocation-end',
             input,
             name,
             status: 'failure',
@@ -100,29 +99,58 @@ const builder: PipelineFactoryBuilder =
       }
 
       return async <Output>(input) => {
-        const sequence = modify(middlewares, modifications)
+        try {
+          await notifyWithoutOutput({
+            type: 'request-begin',
+            input,
+            pid,
+            rid
+          })
 
-        if (sequence.length === 0) return input
+          const sequence = modify(middlewares, modifications)
 
-        let output = freeze(input, true)
+          if (sequence.length === 0) return input
 
-        let middleware = sequence.shift()
+          let output = freeze(input, true)
 
-        const next: Next = async (patch) => {
-          middleware = sequence.shift()
+          let middleware = sequence.shift()
 
-          return patch
+          const next: Next = async (patch) => {
+            middleware = sequence.shift()
+
+            return patch
+          }
+
+          while (middleware) {
+            const current = middleware
+
+            middleware = undefined
+
+            output = await invoke(current, next, output)
+          }
+
+          await notifyWithOutput({
+            type: 'request-end',
+            input,
+            output,
+            status: 'success',
+            pid,
+            rid
+          })
+
+          return output as Output
+        } catch (error) {
+          await notifyWithoutOutput({
+            type: 'request-end',
+            input,
+            status: 'failure',
+            error,
+            pid,
+            rid
+          })
+
+          throw error
         }
-
-        while (middleware) {
-          const current = middleware
-
-          middleware = undefined
-
-          output = await invoke(current, next, output)
-        }
-
-        return output as Output
       }
     }
 

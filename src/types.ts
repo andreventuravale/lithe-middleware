@@ -28,41 +28,95 @@ export type Pipeline<Input = unknown> = (
   modifications?: PipelineModification[]
 ) => MiddlewareHandler<Input>
 
-export type PipelineEventType = 'begin' | 'end'
+export type PipelineEventType =
+  | 'request-begin'
+  | 'request-end'
+  | 'invocation-begin'
+  | 'invocation-end'
 
 export type PipelineBaseEvent<Type extends PipelineEventType> = {
   type: Type
-  name: string | undefined
   input: unknown
   /**
    * Pipeline id
    */
   pid: string
-  /**
-   * Request id
-   */
-  rid: string
-  /**
-   * Invocation id ( aka middleware invocation id )
-   */
-  iid: string
 }
 
-export type PipelineBeginEvent = PipelineBaseEvent<'begin'>
+export type PipelineBaseRequestEvent<Type extends PipelineEventType> =
+  PipelineBaseEvent<Type> & {
+    /**
+     * Request id
+     */
+    rid: string
+  }
 
-export type PipelineSuccessEvent = PipelineBaseEvent<'end'> & {
-  status: 'success'
-  output: unknown
-}
+export type PipelineRequestBeginEvent =
+  PipelineBaseRequestEvent<'request-begin'>
 
-export type PipelineFailureEvent = PipelineBaseEvent<'end'> & {
-  status: 'failure'
-  error: Error
-}
+export type PipelineRequestSuccessEvent =
+  PipelineBaseRequestEvent<'request-end'> & {
+    status: 'success'
+    output: unknown
+  }
 
-export type PipelineEndEvent = PipelineSuccessEvent | PipelineFailureEvent
+export type PipelineRequestFailureEvent =
+  PipelineBaseRequestEvent<'request-end'> & {
+    status: 'failure'
+    error: Error
+  }
 
-export type PipelineEvent = PipelineBeginEvent | PipelineEndEvent
+export type PipelineRequestEndEvent =
+  | PipelineRequestSuccessEvent
+  | PipelineRequestFailureEvent
+
+export type PipelineRequestEvent =
+  | PipelineRequestBeginEvent
+  | PipelineRequestEndEvent
+
+export type PipelineBaseInvocationEvent<Type extends PipelineEventType> =
+  PipelineBaseRequestEvent<Type> & {
+    name: string | undefined
+    /**
+     * Invocation id ( aka middleware invocation id )
+     */
+    iid: string
+  }
+
+export type PipelineInvocationBeginEvent =
+  PipelineBaseInvocationEvent<'invocation-begin'>
+
+export type PipelineInvocationSuccessEvent =
+  PipelineBaseInvocationEvent<'invocation-end'> & {
+    status: 'success'
+    output: unknown
+  }
+
+export type PipelineInvocationFailureEvent =
+  PipelineBaseInvocationEvent<'invocation-end'> & {
+    status: 'failure'
+    error: Error
+  }
+
+export type PipelineInvocationEndEvent =
+  | PipelineInvocationSuccessEvent
+  | PipelineInvocationFailureEvent
+
+export type PipelineInvocationEvent =
+  | PipelineInvocationBeginEvent
+  | PipelineInvocationEndEvent
+
+export type PipelineEventsWithOutput =
+  | PipelineRequestSuccessEvent
+  | PipelineInvocationSuccessEvent
+
+export type PipelineEventsWithoutOutput =
+  | PipelineRequestBeginEvent
+  | PipelineInvocationBeginEvent
+  | PipelineRequestFailureEvent
+  | PipelineInvocationFailureEvent
+
+export type PipelineEvent = PipelineRequestEvent | PipelineInvocationEvent
 
 export type PipelineEventListener = (
   event: Readonly<PipelineEvent>,
