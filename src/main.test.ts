@@ -1,7 +1,7 @@
 import builder, {
   type AnonymousMiddleware,
   type Middleware,
-  type PipelineEventListener
+  type PipelineInterceptor
 } from './main.js'
 import test from 'ava'
 import { func, matchers, verify } from 'testdouble'
@@ -434,12 +434,12 @@ test('In a typeless pipeline, you can specify the output type at the request lev
 })
 
 test('(Plugins) Events.', async (t) => {
-  const listen = func<PipelineEventListener>()
+  const intercept = func<PipelineInterceptor>()
 
   const factory = builder({
     plugins: [
       {
-        listen
+        intercept: intercept
       }
     ]
   })
@@ -459,7 +459,7 @@ test('(Plugins) Events.', async (t) => {
   await request('')
 
   verify(
-    listen(
+    intercept(
       {
         type: 'invocation-begin',
         input: '1 2',
@@ -473,7 +473,7 @@ test('(Plugins) Events.', async (t) => {
   )
 
   verify(
-    listen(
+    intercept(
       {
         type: 'invocation-begin',
         input: '1',
@@ -487,7 +487,7 @@ test('(Plugins) Events.', async (t) => {
   )
 
   verify(
-    listen(
+    intercept(
       {
         type: 'invocation-begin',
         input: '',
@@ -503,7 +503,7 @@ test('(Plugins) Events.', async (t) => {
   t.pass('todo')
 
   // t.deepEqual(
-  //   explain(listen).calls.map(({ args: [e] }) => [
+  //   explain(intercept).calls.map(({ args: [e] }) => [
   //     omit(e, ['pid', 'rid', 'iid'])
   //   ]),
   //   [
@@ -542,7 +542,7 @@ test('(Plugins) Events.', async (t) => {
 })
 
 // test('(Plugins) Events with failures.', async (t) => {
-//   const listen = func<PipelineEventListener>()
+//   const intercept = func<PipelineInterceptor>()
 
 //   const first = (next) => async (input) => await next(input + '1')
 
@@ -557,7 +557,7 @@ test('(Plugins) Events.', async (t) => {
 //   const pipeline = builder({
 //     plugins: [
 //       {
-//         listen
+//         intercept
 //       }
 //     ]
 //   })([['first', first], ['second', second], third])
@@ -572,17 +572,17 @@ test('(Plugins) Events.', async (t) => {
 //   )
 
 //   verify(
-//     listen({ type: 'invocation-begin', input: '', name: 'first' }, matchers.anything())
+//     intercept({ type: 'invocation-begin', input: '', name: 'first' }, matchers.anything())
 //   )
 //   verify(
-//     listen({ type: 'invocation-begin', input: '1', name: 'second' }, matchers.anything())
+//     intercept({ type: 'invocation-begin', input: '1', name: 'second' }, matchers.anything())
 //   )
 //   verify(
-//     listen({ type: 'invocation-begin', input: '1 2', name: 'third' }, matchers.anything())
+//     intercept({ type: 'invocation-begin', input: '1 2', name: 'third' }, matchers.anything())
 //   )
 
 //   verify(
-//     listen(
+//     intercept(
 //       {
 //         type: 'end',
 //         input: '1 2',
@@ -694,7 +694,7 @@ test('(Plugins) Events can modify the output.', async (t) => {
   const pipeline = builder({
     plugins: [
       {
-        listen: async (event, { patch }) => {
+        intercept: async (event, { patch }) => {
           if (event.type === 'invocation-end' && event.status === 'success') {
             const { name, output } = event
 

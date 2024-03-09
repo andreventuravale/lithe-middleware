@@ -29,7 +29,8 @@ const builder: PipelineFactoryBuilder =
           const frozenEvent = freeze({ ...event, output }, true)
 
           output =
-            (await plugin.listen?.(frozenEvent, { patch: produce })) ?? output
+            (await plugin.intercept?.(frozenEvent, { patch: produce })) ??
+            output
         }
 
         return output
@@ -41,7 +42,7 @@ const builder: PipelineFactoryBuilder =
         const frozenEvent = freeze(event, true)
 
         for (const plugin of plugins) {
-          await plugin.listen?.(frozenEvent, { patch: produce })
+          await plugin.intercept?.(frozenEvent, { patch: produce })
         }
       }
 
@@ -99,19 +100,21 @@ const builder: PipelineFactoryBuilder =
       }
 
       return async <Output>(input) => {
-        try {
-          await notifyWithoutOutput({
-            type: 'request-begin',
-            input,
-            pid,
-            rid
-          })
+        await notifyWithoutOutput({
+          type: 'request-begin',
+          input,
+          pid,
+          rid
+        })
 
+        let output = freeze(input, true)
+
+        let requestError
+
+        try {
           const sequence = modify(middlewares, modifications)
 
           if (sequence.length === 0) return input
-
-          let output = freeze(input, true)
 
           let middleware = sequence.shift()
 
@@ -129,27 +132,31 @@ const builder: PipelineFactoryBuilder =
             output = await invoke(current, next, output)
           }
 
-          await notifyWithOutput({
-            type: 'request-end',
-            input,
-            output,
-            status: 'success',
-            pid,
-            rid
-          })
-
           return output as Output
         } catch (error) {
-          await notifyWithoutOutput({
-            type: 'request-end',
-            input,
-            status: 'failure',
-            error,
-            pid,
-            rid
-          })
+          requestError = error
 
           throw error
+        } finally {
+          if (requestError) {
+            await notifyWithoutOutput({
+              type: 'request-end',
+              input,
+              status: 'failure',
+              error: requestError,
+              pid,
+              rid
+            })
+          } else {
+            await notifyWithOutput({
+              type: 'request-end',
+              input,
+              output,
+              status: 'success',
+              pid,
+              rid
+            })
+          }
         }
       }
     }

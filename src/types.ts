@@ -118,12 +118,12 @@ export type PipelineEventsWithoutOutput =
 
 export type PipelineEvent = PipelineRequestEvent | PipelineInvocationEvent
 
-export type PipelineEventListener = (
+export type PipelineInterceptor = (
   event: Readonly<PipelineEvent>,
   tools: { patch: typeof produce }
 ) => Promise<unknown>
 
-export type PipelinePlugin = { listen?: PipelineEventListener }
+export type PipelinePlugin = { intercept?: PipelineInterceptor }
 
 export type PipelineOptions = {
   plugins?: PipelinePlugin[]
