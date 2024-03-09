@@ -42,6 +42,10 @@ export type PipelineBaseEvent<Type extends PipelineEventType> = {
    * Pipeline id
    */
   pid: string
+  /**
+   * Parent Pipeline id
+   */
+  ppid?: string
   pipelineName: string
 }
 

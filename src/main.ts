@@ -17,9 +17,10 @@ export * from './types.js'
 const builder: PipelineFactoryBuilder =
   (options = {}) =>
   (pipelineName, middlewares = []) => {
-    const { plugins = [] } = options
+    const { plugins = [], parentId } = options
 
     const pid = randomUUID()
+    const ppid = parentId
 
     const pipeline: Pipeline = (modifications = []) => {
       const rid = randomUUID()
@@ -62,6 +63,7 @@ const builder: PipelineFactoryBuilder =
             name,
             pipelineName,
             pid,
+            ppid,
             rid,
             iid
           })
@@ -82,6 +84,7 @@ const builder: PipelineFactoryBuilder =
               status: 'success',
               pipelineName,
               pid,
+              ppid,
               rid,
               iid
             })) ?? output,
@@ -98,6 +101,7 @@ const builder: PipelineFactoryBuilder =
             error,
             pipelineName,
             pid,
+            ppid,
             rid,
             iid
           })
@@ -112,6 +116,7 @@ const builder: PipelineFactoryBuilder =
           input,
           pipelineName,
           pid,
+          ppid,
           rid
         })
 
@@ -156,6 +161,7 @@ const builder: PipelineFactoryBuilder =
               error: requestError,
               pipelineName,
               pid,
+              ppid,
               rid
             })
           } else {
@@ -166,6 +172,7 @@ const builder: PipelineFactoryBuilder =
               status: 'success',
               pipelineName,
               pid,
+              ppid,
               rid
             })
           }
