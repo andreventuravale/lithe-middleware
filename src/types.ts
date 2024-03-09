@@ -1,3 +1,5 @@
+import { produce } from 'immer'
+
 export type MiddlewareHandler<Input = unknown> = <Output = unknown>(
   input: Input
 ) => Promise<Output>
@@ -50,11 +52,12 @@ export type PipelineEndEvent = PipelineSuccessEvent | PipelineFailureEvent
 
 export type PipelineEvent = PipelineBeginEvent | PipelineEndEvent
 
-export type PipelineEventHandler = (
-  event: Readonly<PipelineEvent>
-) => Promise<void>
+export type PipelineEventListener = (
+  event: Readonly<PipelineEvent>,
+  tools: { patch: typeof produce }
+) => Promise<unknown>
 
-export type PipelinePlugin = { event?: PipelineEventHandler }
+export type PipelinePlugin = { listen?: PipelineEventListener }
 
 export type PipelineOptions = {
   plugins?: PipelinePlugin[]

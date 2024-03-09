@@ -2,48 +2,69 @@ import type {
   Middleware,
   Next,
   Pipeline,
-  PipelineEvent,
+  PipelineBeginEvent,
   PipelineFactoryBuilder,
-  PipelineModification
+  PipelineFailureEvent,
+  PipelineModification,
+  PipelineSuccessEvent
 } from './types.js'
-import { freeze } from 'immer'
+import { freeze, produce } from 'immer'
 
 export * from './types.js'
 
 const builder: PipelineFactoryBuilder =
-  ({ plugins } = {}) =>
+  ({ plugins = [] } = {}) =>
   (middlewares = []) => {
-    const notify = (info: Readonly<PipelineEvent>) => {
-      const frozen = freeze(info, true)
+    const notifyWithOutput = async (event: Readonly<PipelineSuccessEvent>) => {
+      let output = event.output
 
-      plugins?.forEach((plugin) => {
-        plugin.event?.(frozen)
-      })
+      for (const plugin of plugins) {
+        const frozenEvent = freeze({ ...event, output }, true)
+
+        output =
+          (await plugin.listen?.(frozenEvent, { patch: produce })) ?? output
+      }
+
+      return output
+    }
+
+    const notifyWithoutOutput = async (
+      event: Readonly<PipelineBeginEvent | PipelineFailureEvent>
+    ) => {
+      const frozenEvent = freeze(event, true)
+
+      for (const plugin of plugins) {
+        await plugin.listen?.(frozenEvent, { patch: produce })
+      }
     }
 
     const invoke = async (middleware, next, input) => {
       const name = getName(middleware)
 
       try {
-        await notify({ type: 'begin', input, name })
+        await notifyWithoutOutput({ type: 'begin', input, name })
 
-        const fn = typeof middleware === 'function' ? middleware : middleware[1]
+        const middlewareFn =
+          typeof middleware === 'function' ? middleware : middleware[1]
 
-        const handler = fn(next)
+        const handler = middlewareFn(next)
 
         const output = freeze(await handler(input), true)
 
-        await notify({
-          type: 'end',
-          input,
-          output,
-          name,
-          status: 'success'
-        })
+        const finalOutput = freeze(
+          (await notifyWithOutput({
+            type: 'end',
+            input,
+            output,
+            name,
+            status: 'success'
+          })) ?? output,
+          true
+        )
 
-        return output
+        return finalOutput
       } catch (error) {
-        await notify({
+        await notifyWithoutOutput({
           type: 'end',
           input,
           name,
