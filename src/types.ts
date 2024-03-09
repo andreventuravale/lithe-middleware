@@ -24,9 +24,10 @@ export type PipelineModification<Input = unknown> =
   | ['skip', name: string]
   | Middleware<Input>
 
-export type Pipeline<Input = unknown> = (
-  modifications?: PipelineModification[]
-) => MiddlewareHandler<Input>
+export interface Pipeline<Input = unknown> {
+  (modifications?: PipelineModification[]): MiddlewareHandler<Input>
+  connect: (next: Next) => Pipeline<Input>
+}
 
 export type PipelineEventType =
   | 'request-begin'
@@ -41,6 +42,7 @@ export type PipelineBaseEvent<Type extends PipelineEventType> = {
    * Pipeline id
    */
   pid: string
+  pipelineName: string
 }
 
 export type PipelineBaseRequestEvent<Type extends PipelineEventType> =
@@ -126,6 +128,7 @@ export type PipelineInterceptor = (
 export type PipelinePlugin = { intercept?: PipelineInterceptor }
 
 export type PipelineOptions = {
+  parentId?: string
   plugins?: PipelinePlugin[]
 }
 
@@ -134,6 +137,7 @@ type InputOf<M> = M extends Middleware<infer I> ? I : never
 type MergedInputs<Ms> = Ms extends (infer I)[] ? InputOf<I> : never
 
 export type PipelineFactory = <Ms extends Middleware[]>(
+  name: string,
   middlewares?: Middleware[]
 ) => Pipeline<MergedInputs<Ms>>
 

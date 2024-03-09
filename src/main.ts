@@ -10,11 +10,15 @@ import type {
 import { freeze, produce } from 'immer'
 import { randomUUID } from 'node:crypto'
 
+const PID_KEY = Symbol('pid')
+
 export * from './types.js'
 
 const builder: PipelineFactoryBuilder =
-  ({ plugins = [] } = {}) =>
-  (middlewares = []) => {
+  (options = {}) =>
+  (pipelineName, middlewares = []) => {
+    const { plugins = [] } = options
+
     const pid = randomUUID()
 
     const pipeline: Pipeline = (modifications = []) => {
@@ -56,6 +60,7 @@ const builder: PipelineFactoryBuilder =
             type: 'invocation-begin',
             input,
             name,
+            pipelineName,
             pid,
             rid,
             iid
@@ -75,6 +80,7 @@ const builder: PipelineFactoryBuilder =
               output,
               name,
               status: 'success',
+              pipelineName,
               pid,
               rid,
               iid
@@ -90,6 +96,7 @@ const builder: PipelineFactoryBuilder =
             name,
             status: 'failure',
             error,
+            pipelineName,
             pid,
             rid,
             iid
@@ -103,6 +110,7 @@ const builder: PipelineFactoryBuilder =
         await notifyWithoutOutput({
           type: 'request-begin',
           input,
+          pipelineName,
           pid,
           rid
         })
@@ -124,6 +132,8 @@ const builder: PipelineFactoryBuilder =
             return patch
           }
 
+          next[PID_KEY] = pid
+
           while (middleware) {
             const current = middleware
 
@@ -144,6 +154,7 @@ const builder: PipelineFactoryBuilder =
               input,
               status: 'failure',
               error: requestError,
+              pipelineName,
               pid,
               rid
             })
@@ -153,12 +164,25 @@ const builder: PipelineFactoryBuilder =
               input,
               output,
               status: 'success',
+              pipelineName,
               pid,
               rid
             })
           }
         }
       }
+    }
+
+    pipeline.connect = (next) => {
+      if (!(PID_KEY in next)) {
+        throw new Error('could not find parent pid at PID_KEY')
+      }
+
+      // export type Next = (input: unknown) => Promise<unknown>
+      return builder({ ...options, parentId: next[PID_KEY] as string })(
+        pipelineName,
+        [...middlewares, () => next as any]
+      )
     }
 
     return pipeline

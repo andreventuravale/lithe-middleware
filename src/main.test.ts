@@ -13,7 +13,7 @@ test('Happy path.', async (t) => {
 
   const r = (next) => async (input) => await next(input + 'r')
 
-  const pipeline = builder()([b, a, r])
+  const pipeline = builder()('test', [b, a, r])
 
   const request = pipeline()
 
@@ -29,7 +29,7 @@ test('Modifications on a initial empty middleware list.', async (t) => {
 
   const r = (next) => async (input) => await next(input + 'r')
 
-  const pipeline = builder()([])
+  const pipeline = builder()('test', [])
 
   const request = pipeline([b, a, r])
 
@@ -72,7 +72,7 @@ test('Propagates errors directly to the pipeline caller without rippling back th
     throw new Error('rrrrrrrrrrrr')
   }
 
-  const pipeline = builder()([b, a, r])
+  const pipeline = builder()('test', [b, a, r])
 
   const request = pipeline()
 
@@ -88,7 +88,7 @@ test('Propagates errors directly to the pipeline caller without rippling back th
 })
 
 test('An empty pipeline outputs the original input unchanged.', async (t) => {
-  const pipeline = builder()()
+  const pipeline = builder()('test')
 
   const request = pipeline()
 
@@ -105,9 +105,9 @@ test('Nested pipelines.', async (t) => {
   const c = (next) => async (input) => await next(input + 'c')
 
   const bc = (next) => async (input) =>
-    await next(await builder()([b, c])()(input))
+    await next(await builder()('test', [b, c])()(input))
 
-  const pipeline = builder()([a, bc])
+  const pipeline = builder()('test', [a, bc])
 
   const request = pipeline()
 
@@ -123,7 +123,7 @@ test('Named middlewares (tuple mode).', async (t) => {
 
   const r = (next) => async (output) => await next(output + 'r')
 
-  const pipeline = builder()([b, ['adds a', a], ['adds r', r]])
+  const pipeline = builder()('test', [b, ['adds a', a], ['adds r', r]])
 
   const request = pipeline()
 
@@ -143,7 +143,7 @@ test('Positions a middleware before another.', async (t) => {
 
   const r = (next) => async (input) => await next(input + 'r')
 
-  const pipeline = builder()([b, ['r', r]])
+  const pipeline = builder()('test', [b, ['r', r]])
 
   const request = pipeline([
     [hello, 'before', 'b'],
@@ -166,7 +166,7 @@ test('Inserts a middleware adjacent to another.', async (t) => {
 
   const baz = (next) => async (input) => await next(input + ' baz')
 
-  const pipeline = builder()([b, r])
+  const pipeline = builder()('test', [b, r])
 
   const request = pipeline([
     [a, 'after', 'b'],
@@ -185,7 +185,7 @@ test('Replacing middlewares.', async (t) => {
     return async (input) => await next(input + ' bar')
   }
 
-  const pipeline = builder()([
+  const pipeline = builder()('test', [
     ['foo', foo],
     ['bar', bar]
   ])
@@ -214,7 +214,7 @@ test('Skipping middlewares.', async (t) => {
 
   const third = (next) => async (input) => await next(input + ' 3')
 
-  const pipeline = builder()([
+  const pipeline = builder()('test', [
     ['first', first],
     ['second', second],
     ['third', third]
@@ -238,7 +238,7 @@ test('Appending middlewares.', async (t) => {
 
   const third = (next) => async (input) => await next(input + ' 3')
 
-  const pipeline = builder()([first, second, third])
+  const pipeline = builder()('test', [first, second, third])
 
   const d = (next) => async (input) => await next(input + ' 4')
 
@@ -252,7 +252,7 @@ test('Generates an error if the referenced modification cannot be located.', asy
 
   const r = (next) => async (input) => await next(input + 'r')
 
-  const pipeline = builder()([b, r])
+  const pipeline = builder()('test', [b, r])
 
   const a = (next) => async (input) => await next(input + 'a')
 
@@ -273,7 +273,7 @@ test('Modifications made at the request level, also known as request-level middl
 
   const list: Middleware[] = [b, ['adds r', r]]
 
-  const pipeline = builder()(list)
+  const pipeline = builder()('test', list)
 
   t.truthy(list.length === 2)
 
@@ -297,7 +297,7 @@ test('Not providing any middlewares at the request level does not impact the lis
 
   const list: AnonymousMiddleware[] = [b, a, r]
 
-  const factory = builder()(list)
+  const factory = builder()('test', list)
 
   t.truthy(list.length === 3)
 
@@ -315,7 +315,7 @@ test('Request-level middlewares, also known as modifications, are executed withi
 
   const list: Middleware[] = [['first', first]]
 
-  const pipeline = builder()(list)
+  const pipeline = builder()('test', list)
 
   const a = (next) => async (input) => await next(input + 'a')
 
@@ -347,7 +347,7 @@ test('Request-level middlewares, also known as modifications, are incorporated a
     ['forth', forth]
   ]
 
-  const pipeline = builder()(list)
+  const pipeline = builder()('test', list)
 
   const a = (next) => async (input) => await next(input + 'a')
 
@@ -380,7 +380,7 @@ test('Forbids changes to the input.', async (t) => {
 
   const factory = builder()
 
-  const pipeline = factory([foo])
+  const pipeline = factory('test', [foo])
 
   const request = pipeline()
 
@@ -396,7 +396,7 @@ test('Forbids changes to the input (deep).', async (t) => {
     return await next(input)
   }
 
-  const request = builder()([foo])()
+  const request = builder()('test', [foo])()
 
   await t.throwsAsync(async () => await request({ foo: { bar: 'baz' } }), {
     message: /Cannot assign to read only property 'bar'/
@@ -412,7 +412,7 @@ test('Forbids changes to the input (deep in arrays).', async (t) => {
     return await next(input)
   }
 
-  const request = builder()([fooBar])()
+  const request = builder()('test', [fooBar])()
 
   await t.throwsAsync(async () => await request({ foo: [0, { bar: 'baz' }] }), {
     message: /Cannot assign to read only property 'bar'/
@@ -424,7 +424,7 @@ test('In a typeless pipeline, you can specify the output type at the request lev
 
   const typelessMiddleware = (next) => async (input) => await next(input)
 
-  const typelessPipeline = typelessFactory([typelessMiddleware])
+  const typelessPipeline = typelessFactory('test', [typelessMiddleware])
 
   const typelessRequest = typelessPipeline()
 
@@ -452,7 +452,7 @@ test('(Plugins) Events.', async (t) => {
 
   const third = (next) => async (input) => await next(input + ' 3')
 
-  const pipeline = factory([['first', first], second, ['third', third]])
+  const pipeline = factory('test', [['first', first], second, ['third', third]])
 
   const request = pipeline()
 
@@ -465,6 +465,7 @@ test('(Plugins) Events.', async (t) => {
         input: '1 2',
         name: 'third',
         pid: matchers.anything(),
+        pipelineName: 'test',
         rid: matchers.anything(),
         iid: matchers.anything()
       },
@@ -479,6 +480,7 @@ test('(Plugins) Events.', async (t) => {
         input: '1',
         name: 'second',
         pid: matchers.anything(),
+        pipelineName: 'test',
         rid: matchers.anything(),
         iid: matchers.anything()
       },
@@ -494,6 +496,7 @@ test('(Plugins) Events.', async (t) => {
         name: 'first',
         rid: matchers.anything(),
         pid: matchers.anything(),
+        pipelineName: 'test',
         iid: matchers.anything()
       },
       matchers.anything()
@@ -560,7 +563,7 @@ test('(Plugins) Events.', async (t) => {
 //         intercept
 //       }
 //     ]
-//   })([['first', first], ['second', second], third])
+//   })('test', [['first', first], ['second', second], third])
 
 //   const request = pipeline()
 
@@ -596,7 +599,7 @@ test('(Plugins) Events.', async (t) => {
 // })
 
 test('Interdependency among the incoming modifications.', async (t) => {
-  const pipeline = builder()([])
+  const pipeline = builder()('test', [])
 
   function a(next) {
     return async (input) => await next(input + 'a')
@@ -679,9 +682,9 @@ test('A middleware can stop the pipeline execution by not calling next.', async 
 
   const r = (next) => async (input) => await next(input + 'r')
 
-  t.deepEqual(await builder()([b, a(false), r])()('foo'), 'foo bar')
+  t.deepEqual(await builder()('test', [b, a(false), r])()('foo'), 'foo bar')
 
-  t.deepEqual(await builder()([b, a(true), r])()('foo'), 'foo ba')
+  t.deepEqual(await builder()('test', [b, a(true), r])()('foo'), 'foo ba')
 })
 
 test('(Plugins) Events can modify the output.', async (t) => {
@@ -707,7 +710,7 @@ test('(Plugins) Events can modify the output.', async (t) => {
         }
       }
     ]
-  })([
+  })('test', [
     ['first', first],
     ['second', second]
   ])
