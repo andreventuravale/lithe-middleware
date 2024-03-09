@@ -4,6 +4,7 @@ import builder, {
   type PipelineEventListener
 } from './main.js'
 import test from 'ava'
+import { omit } from 'lodash-es'
 import { explain, func, matchers, verify } from 'testdouble'
 
 test('Happy path.', async (t) => {
@@ -459,19 +460,51 @@ test('(Plugins) Events.', async (t) => {
   await request('')
 
   verify(
-    listen({ type: 'begin', input: '1 2', name: 'third' }, matchers.anything())
+    listen(
+      {
+        type: 'begin',
+        input: '1 2',
+        name: 'third',
+        pid: matchers.anything(),
+        rid: matchers.anything(),
+        iid: matchers.anything()
+      },
+      matchers.anything()
+    )
   )
 
   verify(
-    listen({ type: 'begin', input: '1', name: 'second' }, matchers.anything())
+    listen(
+      {
+        type: 'begin',
+        input: '1',
+        name: 'second',
+        pid: matchers.anything(),
+        rid: matchers.anything(),
+        iid: matchers.anything()
+      },
+      matchers.anything()
+    )
   )
 
   verify(
-    listen({ type: 'begin', input: '', name: 'first' }, matchers.anything())
+    listen(
+      {
+        type: 'begin',
+        input: '',
+        name: 'first',
+        rid: matchers.anything(),
+        pid: matchers.anything(),
+        iid: matchers.anything()
+      },
+      matchers.anything()
+    )
   )
 
   t.deepEqual(
-    explain(listen).calls.map(({ args }) => args.slice(0, 1)),
+    explain(listen).calls.map(({ args: [e] }) => [
+      omit(e, ['pid', 'rid', 'iid'])
+    ]),
     [
       [{ type: 'begin', input: '', name: 'first' }],
       [

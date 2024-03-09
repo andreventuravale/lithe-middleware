@@ -34,6 +34,18 @@ export type PipelineBaseEvent<Type extends PipelineEventType> = {
   type: Type
   name: string | undefined
   input: unknown
+  /**
+   * Pipeline id
+   */
+  pid: string
+  /**
+   * Request id
+   */
+  rid: string
+  /**
+   * Invocation id ( aka middleware invocation id )
+   */
+  iid: string
 }
 
 export type PipelineBeginEvent = PipelineBaseEvent<'begin'>

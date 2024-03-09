@@ -9,76 +9,97 @@ import type {
   PipelineSuccessEvent
 } from './types.js'
 import { freeze, produce } from 'immer'
+import { randomUUID } from 'node:crypto'
 
 export * from './types.js'
 
 const builder: PipelineFactoryBuilder =
   ({ plugins = [] } = {}) =>
   (middlewares = []) => {
-    const notifyWithOutput = async (event: Readonly<PipelineSuccessEvent>) => {
-      let output = event.output
+    const pid = randomUUID()
 
-      for (const plugin of plugins) {
-        const frozenEvent = freeze({ ...event, output }, true)
+    const pipeline: Pipeline = (modifications = []) => {
+      const rid = randomUUID()
 
-        output =
-          (await plugin.listen?.(frozenEvent, { patch: produce })) ?? output
+      const notifyWithOutput = async (
+        event: Readonly<PipelineSuccessEvent>
+      ) => {
+        let output = event.output
+
+        for (const plugin of plugins) {
+          const frozenEvent = freeze({ ...event, output }, true)
+
+          output =
+            (await plugin.listen?.(frozenEvent, { patch: produce })) ?? output
+        }
+
+        return output
       }
 
-      return output
-    }
+      const notifyWithoutOutput = async (
+        event: Readonly<PipelineBeginEvent | PipelineFailureEvent>
+      ) => {
+        const frozenEvent = freeze(event, true)
 
-    const notifyWithoutOutput = async (
-      event: Readonly<PipelineBeginEvent | PipelineFailureEvent>
-    ) => {
-      const frozenEvent = freeze(event, true)
-
-      for (const plugin of plugins) {
-        await plugin.listen?.(frozenEvent, { patch: produce })
+        for (const plugin of plugins) {
+          await plugin.listen?.(frozenEvent, { patch: produce })
+        }
       }
-    }
 
-    const invoke = async (middleware, next, input) => {
-      const name = getName(middleware)
+      const invoke = async (middleware, next, input) => {
+        const iid = randomUUID()
 
-      try {
-        await notifyWithoutOutput({ type: 'begin', input, name })
+        const name = getName(middleware)
 
-        const middlewareFn =
-          typeof middleware === 'function' ? middleware : middleware[1]
+        try {
+          await notifyWithoutOutput({
+            type: 'begin',
+            input,
+            name,
+            pid,
+            rid,
+            iid
+          })
 
-        const handler = middlewareFn(next)
+          const middlewareFn =
+            typeof middleware === 'function' ? middleware : middleware[1]
 
-        const output = freeze(await handler(input), true)
+          const handler = middlewareFn(next)
 
-        const finalOutput = freeze(
-          (await notifyWithOutput({
+          const output = freeze(await handler(input), true)
+
+          const finalOutput = freeze(
+            (await notifyWithOutput({
+              type: 'end',
+              input,
+              output,
+              name,
+              status: 'success',
+              pid,
+              rid,
+              iid
+            })) ?? output,
+            true
+          )
+
+          return finalOutput
+        } catch (error) {
+          await notifyWithoutOutput({
             type: 'end',
             input,
-            output,
             name,
-            status: 'success'
-          })) ?? output,
-          true
-        )
+            status: 'failure',
+            error,
+            pid,
+            rid,
+            iid
+          })
 
-        return finalOutput
-      } catch (error) {
-        await notifyWithoutOutput({
-          type: 'end',
-          input,
-          name,
-          status: 'failure',
-          error
-        })
-
-        throw error
+          throw error
+        }
       }
-    }
 
-    const pipeline: Pipeline =
-      (modifications = []) =>
-      async <Output>(input) => {
+      return async <Output>(input) => {
         const sequence = modify(middlewares, modifications)
 
         if (sequence.length === 0) return input
@@ -103,6 +124,7 @@ const builder: PipelineFactoryBuilder =
 
         return output as Output
       }
+    }
 
     return pipeline
   }
