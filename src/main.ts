@@ -16,172 +16,187 @@ export * from './types.js'
 
 const builder: PipelineFactoryBuilder =
   (options = {}) =>
-  (pipelineName, middlewares = []) => {
-    const { plugins = [], parent } = options
+    (pipelineName, middlewares = []) => {
+      const { plugins = [], parent } = options
 
-    const prid = parent?.[RID_KEY]
+      const prid = parent?.[RID_KEY]
 
-    const pipeline: Pipeline = (modifications = []) => {
-      const rid = randomUUID()
+      const pipeline: Pipeline = (modifications = []) => {
+        const rid = randomUUID()
 
-      const notifyWithOutput = async (
-        event: Readonly<PipelineEventsWithOutput>
-      ) => {
-        let output = event.output
+        const notifyWithOutput = async (
+          event: Readonly<PipelineEventsWithOutput>
+        ) => {
+          switch (event.type) {
+            case 'invocation-end':
+              if (!event.name) {
+                return
+              }
+          }
 
-        for (const plugin of plugins) {
-          const frozenEvent = freeze({ ...event, output }, true)
+          let output = event.output
 
-          output =
-            (await plugin.intercept?.(frozenEvent, { patch: produce })) ??
-            output
+          for (const plugin of plugins) {
+            const frozenEvent = freeze({ ...event, output }, true)
+
+            output =
+              (await plugin.intercept?.(frozenEvent, { patch: produce })) ??
+              output
+          }
+
+          return output
         }
 
-        return output
-      }
+        const notifyWithoutOutput = async (
+          event: Readonly<PipelineEventsWithoutOutput>
+        ) => {
+          switch (event.type) {
+            case 'invocation-begin':
+            case 'invocation-end':
+              if (!event.name) {
+                return
+              }
+          }
 
-      const notifyWithoutOutput = async (
-        event: Readonly<PipelineEventsWithoutOutput>
-      ) => {
-        const frozenEvent = freeze(event, true)
+          const frozenEvent = freeze(event, true)
 
-        for (const plugin of plugins) {
-          await plugin.intercept?.(frozenEvent, { patch: produce })
+          for (const plugin of plugins) {
+            await plugin.intercept?.(frozenEvent, { patch: produce })
+          }
         }
-      }
 
-      const invoke = async (middleware, next, input) => {
-        const iid = randomUUID()
+        const invoke = async (middleware, next, input) => {
+          const iid = randomUUID()
 
-        const name = getName(middleware)
+          const name = getName(middleware)
 
-        try {
-          await notifyWithoutOutput({
-            type: 'invocation-begin',
-            input,
-            name,
-            pipelineName,
-            prid,
-            rid,
-            iid
-          })
-
-          const middlewareFn =
-            typeof middleware === 'function' ? middleware : middleware[1]
-
-          const handler = middlewareFn(next)
-
-          const output = freeze(await handler(input), true)
-
-          const finalOutput = freeze(
-            (await notifyWithOutput({
-              type: 'invocation-end',
+          try {
+            await notifyWithoutOutput({
+              type: 'invocation-begin',
               input,
-              output,
               name,
-              status: 'success',
               pipelineName,
               prid,
               rid,
               iid
-            })) ?? output,
-            true
-          )
+            })
 
-          return finalOutput
-        } catch (error) {
+            const middlewareFn =
+              typeof middleware === 'function' ? middleware : middleware[1]
+
+            const handler = middlewareFn(next)
+
+            const output = freeze(await handler(input), true)
+
+            const finalOutput = freeze(
+              (await notifyWithOutput({
+                type: 'invocation-end',
+                input,
+                output,
+                name,
+                status: 'success',
+                pipelineName,
+                prid,
+                rid,
+                iid
+              })) ?? output,
+              true
+            )
+
+            return finalOutput
+          } catch (error) {
+            await notifyWithoutOutput({
+              type: 'invocation-end',
+              input,
+              name,
+              status: 'failure',
+              error,
+              pipelineName,
+              prid,
+              rid,
+              iid
+            })
+
+            throw error
+          }
+        }
+
+        return async <Output>(input) => {
           await notifyWithoutOutput({
-            type: 'invocation-end',
+            type: 'request-begin',
             input,
-            name,
-            status: 'failure',
-            error,
             pipelineName,
             prid,
-            rid,
-            iid
+            rid
           })
 
-          throw error
-        }
-      }
+          let output = freeze(input, true)
 
-      return async <Output>(input) => {
-        await notifyWithoutOutput({
-          type: 'request-begin',
-          input,
-          pipelineName,
-          prid,
-          rid
-        })
+          let requestError
 
-        let output = freeze(input, true)
+          try {
+            const sequence = modify(middlewares, modifications)
 
-        let requestError
+            if (sequence.length === 0) return input
 
-        try {
-          const sequence = modify(middlewares, modifications)
+            let middleware = sequence.shift()
 
-          if (sequence.length === 0) return input
+            const next: Next = async (patch) => {
+              middleware = sequence.shift()
 
-          let middleware = sequence.shift()
+              return patch
+            }
 
-          const next: Next = async (patch) => {
-            middleware = sequence.shift()
+            next[RID_KEY] = rid
 
-            return patch
-          }
+            while (middleware) {
+              const current = middleware
 
-          next[RID_KEY] = rid
+              middleware = undefined
 
-          while (middleware) {
-            const current = middleware
+              output = await invoke(current, next, output)
+            }
 
-            middleware = undefined
+            return output as Output
+          } catch (error) {
+            requestError = error
 
-            output = await invoke(current, next, output)
-          }
-
-          return output as Output
-        } catch (error) {
-          requestError = error
-
-          throw error
-        } finally {
-          if (requestError) {
-            await notifyWithoutOutput({
-              type: 'request-end',
-              input,
-              status: 'failure',
-              error: requestError,
-              pipelineName,
-              prid,
-              rid
-            })
-          } else {
-            await notifyWithOutput({
-              type: 'request-end',
-              input,
-              output,
-              status: 'success',
-              pipelineName,
-              prid,
-              rid
-            })
+            throw error
+          } finally {
+            if (requestError) {
+              await notifyWithoutOutput({
+                type: 'request-end',
+                input,
+                status: 'failure',
+                error: requestError,
+                pipelineName,
+                prid,
+                rid
+              })
+            } else {
+              await notifyWithOutput({
+                type: 'request-end',
+                input,
+                output,
+                status: 'success',
+                pipelineName,
+                prid,
+                rid
+              })
+            }
           }
         }
       }
-    }
 
-    pipeline.connect = (next) => {
-      return builder({ ...options, parent: next })(pipelineName, [
-        ...middlewares,
-        () => next as any
-      ])
-    }
+      pipeline.connect = (next) => {
+        return builder({ ...options, parent: next })(pipelineName, [
+          ...middlewares,
+          () => next as any
+        ])
+      }
 
-    return pipeline
-  }
+      return pipeline
+    }
 
 export default builder
 
