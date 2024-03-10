@@ -464,7 +464,7 @@ test('(Plugins) Events.', async (t) => {
         type: 'invocation-begin',
         input: '1 2',
         name: 'third',
-        pid: matchers.anything(),
+        prid: matchers.anything(),
         pipelineName: 'test',
         rid: matchers.anything(),
         iid: matchers.anything()
@@ -479,7 +479,7 @@ test('(Plugins) Events.', async (t) => {
         type: 'invocation-begin',
         input: '1',
         name: 'second',
-        pid: matchers.anything(),
+        prid: matchers.anything(),
         pipelineName: 'test',
         rid: matchers.anything(),
         iid: matchers.anything()
@@ -495,7 +495,7 @@ test('(Plugins) Events.', async (t) => {
         input: '',
         name: 'first',
         rid: matchers.anything(),
-        pid: matchers.anything(),
+        prid: matchers.anything(),
         pipelineName: 'test',
         iid: matchers.anything()
       },
@@ -507,7 +507,7 @@ test('(Plugins) Events.', async (t) => {
 
   // t.deepEqual(
   //   explain(intercept).calls.map(({ args: [e] }) => [
-  //     omit(e, ['pid', 'rid', 'iid'])
+  //     omit(e, ['prid', 'rid', 'iid'])
   //   ]),
   //   [
   //     [{ type: 'invocation-begin', input: '', name: 'first' }],

@@ -38,14 +38,6 @@ export type PipelineEventType =
 export type PipelineBaseEvent<Type extends PipelineEventType> = {
   type: Type
   input: unknown
-  /**
-   * Pipeline id
-   */
-  pid: string
-  /**
-   * Parent Pipeline id
-   */
-  ppid?: string
   pipelineName: string
 }
 
@@ -55,6 +47,10 @@ export type PipelineBaseRequestEvent<Type extends PipelineEventType> =
      * Request id
      */
     rid: string
+    /**
+     * Parent Request id
+     */
+    prid?: string
   }
 
 export type PipelineRequestBeginEvent =
@@ -132,7 +128,7 @@ export type PipelineInterceptor = (
 export type PipelinePlugin = { intercept?: PipelineInterceptor }
 
 export type PipelineOptions = {
-  parentId?: string
+  parent?: Next
   plugins?: PipelinePlugin[]
 }
 
