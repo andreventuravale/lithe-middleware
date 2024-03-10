@@ -1,3 +1,5 @@
+import { freeze, produce } from 'immer'
+import { randomUUID } from 'node:crypto'
 import type {
   Middleware,
   Next,
@@ -7,8 +9,6 @@ import type {
   PipelineFactoryBuilder,
   PipelineModification
 } from './types.js'
-import { freeze, produce } from 'immer'
-import { randomUUID } from 'node:crypto'
 
 const PID_KEY = Symbol('pid')
 
@@ -16,184 +16,187 @@ export * from './types.js'
 
 const builder: PipelineFactoryBuilder =
   (options = {}) =>
-  (pipelineName, middlewares = []) => {
-    const { plugins = [], parentId } = options
+    (pipelineName, middlewares = []) => {
+      const { plugins = [], parentId } = options
 
-    const pid = randomUUID()
-    const ppid = parentId
+      const pid = randomUUID()
+      const ppid = parentId
 
-    const pipeline: Pipeline = (modifications = []) => {
-      const rid = randomUUID()
+      const pipeline: Pipeline = (modifications = []) => {
+        const rid = randomUUID()
 
-      const notifyWithOutput = async (
-        event: Readonly<PipelineEventsWithOutput>
-      ) => {
-        let output = event.output
+        const notifyWithOutput = async (
+          event: Readonly<PipelineEventsWithOutput>
+        ) => {
+          let output = event.output
 
-        for (const plugin of plugins) {
-          const frozenEvent = freeze({ ...event, output }, true)
+          for (const plugin of plugins) {
+            const frozenEvent = freeze({ ...event, output }, true)
 
-          output =
-            (await plugin.intercept?.(frozenEvent, { patch: produce })) ??
-            output
+            output =
+              (await plugin.intercept?.(frozenEvent, { patch: produce })) ??
+              output
+          }
+
+          return output
         }
 
-        return output
-      }
+        const notifyWithoutOutput = async (
+          event: Readonly<PipelineEventsWithoutOutput>
+        ) => {
+          const frozenEvent = freeze(event, true)
 
-      const notifyWithoutOutput = async (
-        event: Readonly<PipelineEventsWithoutOutput>
-      ) => {
-        const frozenEvent = freeze(event, true)
-
-        for (const plugin of plugins) {
-          await plugin.intercept?.(frozenEvent, { patch: produce })
+          for (const plugin of plugins) {
+            await plugin.intercept?.(frozenEvent, { patch: produce })
+          }
         }
-      }
 
-      const invoke = async (middleware, next, input) => {
-        const iid = randomUUID()
+        const invoke = async (middleware, next, input) => {
+          const iid = randomUUID()
 
-        const name = getName(middleware)
+          const name = getName(middleware)
 
-        try {
-          await notifyWithoutOutput({
-            type: 'invocation-begin',
-            input,
-            name,
-            pipelineName,
-            pid,
-            ppid,
-            rid,
-            iid
-          })
-
-          const middlewareFn =
-            typeof middleware === 'function' ? middleware : middleware[1]
-
-          const handler = middlewareFn(next)
-
-          const output = freeze(await handler(input), true)
-
-          const finalOutput = freeze(
-            (await notifyWithOutput({
-              type: 'invocation-end',
+          try {
+            await notifyWithoutOutput({
+              type: 'invocation-begin',
               input,
-              output,
               name,
-              status: 'success',
               pipelineName,
               pid,
               ppid,
               rid,
               iid
-            })) ?? output,
-            true
-          )
+            })
 
-          return finalOutput
-        } catch (error) {
+            const middlewareFn =
+              typeof middleware === 'function' ? middleware : middleware[1]
+
+            const handler = middlewareFn(next)
+
+            const output = freeze(await handler(input), true)
+
+            const finalOutput = freeze(
+              (await notifyWithOutput({
+                type: 'invocation-end',
+                input,
+                output,
+                name,
+                status: 'success',
+                pipelineName,
+                pid,
+                ppid,
+                rid,
+                iid
+              })) ?? output,
+              true
+            )
+
+            return finalOutput
+          } catch (error) {
+            await notifyWithoutOutput({
+              type: 'invocation-end',
+              input,
+              name,
+              status: 'failure',
+              error,
+              pipelineName,
+              pid,
+              ppid,
+              rid,
+              iid
+            })
+
+            throw error
+          }
+        }
+
+        return async <Output>(input) => {
           await notifyWithoutOutput({
-            type: 'invocation-end',
+            type: 'request-begin',
             input,
-            name,
-            status: 'failure',
-            error,
             pipelineName,
             pid,
             ppid,
-            rid,
-            iid
+            rid
           })
 
-          throw error
+          let output = freeze(input, true)
+
+          let requestError
+
+          try {
+            const sequence = modify(middlewares, modifications)
+
+            if (sequence.length === 0) return input
+
+            let middleware = sequence.shift()
+
+            const next: Next = async (patch) => {
+              middleware = sequence.shift()
+
+              return patch
+            }
+
+            next[PID_KEY] = pid
+
+            while (middleware) {
+              const current = middleware
+
+              middleware = undefined
+
+              output = await invoke(current, next, output)
+            }
+
+            return output as Output
+          } catch (error) {
+            requestError = error
+
+            throw error
+          } finally {
+            if (requestError) {
+              await notifyWithoutOutput({
+                type: 'request-end',
+                input,
+                status: 'failure',
+                error: requestError,
+                pipelineName,
+                pid,
+                ppid,
+                rid
+              })
+            } else {
+              await notifyWithOutput({
+                type: 'request-end',
+                input,
+                output,
+                status: 'success',
+                pipelineName,
+                pid,
+                ppid,
+                rid
+              })
+            }
+          }
         }
       }
 
-      return async <Output>(input) => {
-        await notifyWithoutOutput({
-          type: 'request-begin',
-          input,
+      pipeline.connect = (next) => {
+        if (!(PID_KEY in next)) {
+          throw new Error('could not find parent pid at PID_KEY')
+        }
+
+        console.log(next.toString())
+
+        const parentId = next[PID_KEY] as string
+
+        return builder({ ...options, parentId })(
           pipelineName,
-          pid,
-          ppid,
-          rid
-        })
-
-        let output = freeze(input, true)
-
-        let requestError
-
-        try {
-          const sequence = modify(middlewares, modifications)
-
-          if (sequence.length === 0) return input
-
-          let middleware = sequence.shift()
-
-          const next: Next = async (patch) => {
-            middleware = sequence.shift()
-
-            return patch
-          }
-
-          next[PID_KEY] = pid
-
-          while (middleware) {
-            const current = middleware
-
-            middleware = undefined
-
-            output = await invoke(current, next, output)
-          }
-
-          return output as Output
-        } catch (error) {
-          requestError = error
-
-          throw error
-        } finally {
-          if (requestError) {
-            await notifyWithoutOutput({
-              type: 'request-end',
-              input,
-              status: 'failure',
-              error: requestError,
-              pipelineName,
-              pid,
-              ppid,
-              rid
-            })
-          } else {
-            await notifyWithOutput({
-              type: 'request-end',
-              input,
-              output,
-              status: 'success',
-              pipelineName,
-              pid,
-              ppid,
-              rid
-            })
-          }
-        }
-      }
-    }
-
-    pipeline.connect = (next) => {
-      if (!(PID_KEY in next)) {
-        throw new Error('could not find parent pid at PID_KEY')
+          [...middlewares, () => next as any]
+        )
       }
 
-      // export type Next = (input: unknown) => Promise<unknown>
-      return builder({ ...options, parentId: next[PID_KEY] as string })(
-        pipelineName,
-        [...middlewares, () => next as any]
-      )
+      return pipeline
     }
-
-    return pipeline
-  }
 
 export default builder
 
