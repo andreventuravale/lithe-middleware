@@ -253,6 +253,26 @@ test('Generates an error if the referenced modification cannot be located.', asy
 	}).rejects.toThrow('could not find middleware named: "foo bar"')
 })
 
+test('Generates an error if the referenced modification cannot be located ( skip case ).', async () => {
+	const second = next => async input => await next(`${input} 2`)
+
+	const third = next => async input => await next(`${input} 3`)
+
+	const pipeline = builder()('test', [
+		['second', second],
+		['third', third],
+	])
+
+	expect(await pipeline()('')).toEqual(' 2 3')
+
+	await expect(async () => {
+		await pipeline([
+			['skip', 'first'],
+			['skip', 'second'],
+		])('')
+	}).rejects.toThrow('could not find middleware named: "first"')
+})
+
 test('Modifications made at the request level, also known as request-level middlewares, do not influence the middleware list at the pipeline level.', async () => {
 	const b = next => async input => await next(`${input} b`)
 

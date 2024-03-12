@@ -3,6 +3,8 @@ import { freeze, produce } from 'immer'
 
 const ridKey = Symbol('rid')
 
+const freezeUp = x => freeze(x, true)
+
 const builder =
 	(options = {}) =>
 	(pipelineName, middlewares = []) => {
@@ -34,9 +36,9 @@ const builder =
 
 					const handler = middlewareFn(next)
 
-					const output = freeze(await handler(input), true)
+					const output = freezeUp(await handler(input))
 
-					const outputFromPlugins = freeze(
+					const outputFromPlugins = freezeUp(
 						await notifyWithOutput(plugins, {
 							type: 'invocation-end',
 							iid,
@@ -48,7 +50,6 @@ const builder =
 							rid,
 							status: 'success',
 						}),
-						true,
 					)
 
 					return outputFromPlugins ?? output
@@ -78,7 +79,7 @@ const builder =
 					rid,
 				})
 
-				let output = freeze(input, true)
+				let output = freezeUp(input)
 
 				let requestError
 
@@ -206,15 +207,15 @@ function modify(pipelineLevelList, requestLevelList) {
 	}
 
 	const modifications = requestLevelList.slice(0).sort((a, b) => {
-		const nameA = nameOf(a)
-		const nameB = nameOf(b)
-		const x = weightMap[nameA]
-		const y = weightMap[nameB]
-		const i = requestLevelList.indexOf(a)
-		const j = requestLevelList.indexOf(b)
-		const k = x === y ? i : x
-		const l = x === y ? j : y
-		return l - k
+		const aName = nameOf(a)
+		const bName = nameOf(b)
+		const aW = weightMap[aName]
+		const bW = weightMap[bName]
+		const aPos = requestLevelList.indexOf(a)
+		const bPos = requestLevelList.indexOf(b)
+		const x = aW === bW ? aPos : aW
+		const y = aW === bW ? bPos : bW
+		return y - x
 	})
 
 	const result = pipelineLevelList.slice(0)
@@ -263,7 +264,7 @@ const notifyWithoutOutput = async (plugins, event) => {
 			}
 	}
 
-	const frozenEvent = freeze(event, true)
+	const frozenEvent = freezeUp(event)
 
 	for (const plugin of plugins) {
 		await plugin.intercept?.(frozenEvent, { patch: produce })
@@ -281,7 +282,7 @@ const notifyWithOutput = async (plugins, event) => {
 	let output = event.output
 
 	for (const plugin of plugins) {
-		const frozenEvent = freeze({ ...event, output }, true)
+		const frozenEvent = freezeUp({ ...event, output })
 
 		output =
 			(await plugin.intercept?.(frozenEvent, { patch: produce })) ?? output
