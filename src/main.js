@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { freeze, produce } from 'immer'
+import { createDraft, finishDraft, freeze, produce } from 'immer'
 
 const ridKey = Symbol('rid')
 
@@ -15,10 +15,10 @@ const builder =
 		const pipeline = (modifications = []) => {
 			const rid = randomUUID()
 
-			const invoke = async (middleware, next, input) => {
+			const invoke = async (current, next, input) => {
 				const iid = randomUUID()
 
-				const name = nameOf(middleware)
+				const name = nameOf(current)
 
 				try {
 					await notifyWithoutOutput(plugins, {
@@ -32,7 +32,7 @@ const builder =
 					})
 
 					const middlewareFn =
-						typeof middleware === 'function' ? middleware : middleware[1]
+						typeof current === 'function' ? current : current[1]
 
 					const handler = middlewareFn(next)
 
@@ -285,7 +285,11 @@ const notifyWithOutput = async (plugins, event) => {
 		const frozenEvent = freezeUp({ ...event, output })
 
 		output =
-			(await plugin.intercept?.(frozenEvent, { patch: produce })) ?? output
+			(await plugin.intercept?.(frozenEvent, {
+				createDraft,
+				finishDraft,
+				produce,
+			})) ?? output
 	}
 
 	return output

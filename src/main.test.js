@@ -694,11 +694,15 @@ test('(Plugins) Events can modify the output.', async () => {
 					if (event.type === 'invocation-end' && event.status === 'success') {
 						const { name, output } = event
 
-						return tools.patch(output, draft => {
+						const a = tools.produce(output, draft => {
 							draft.traces ??= []
-
-							draft.traces.push(name)
 						})
+
+						const b = tools.createDraft(a)
+
+						b.traces.push(name)
+
+						return tools.finishDraft(b)
 					}
 				},
 			},
@@ -794,7 +798,9 @@ test('Connects to another middleware.', async () => {
 				status: 'success',
 			},
 			{
-				patch: matchers.isA(Function),
+				createDraft: matchers.isA(Function),
+				finishDraft: matchers.isA(Function),
+				produce: matchers.isA(Function),
 			},
 		),
 	)
@@ -811,7 +817,9 @@ test('Connects to another middleware.', async () => {
 				status: 'success',
 			},
 			{
-				patch: matchers.isA(Function),
+				createDraft: matchers.isA(Function),
+				finishDraft: matchers.isA(Function),
+				produce: matchers.isA(Function),
 			},
 		),
 	)
