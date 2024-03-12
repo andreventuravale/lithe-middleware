@@ -3,6 +3,9 @@ import { freeze, produce } from 'immer'
 
 const RID_KEY = Symbol('rid')
 
+/**
+ * @type {import('./types').default}
+ */
 const builder =
 	(options = {}) =>
 	(pipelineName, middlewares = []) => {

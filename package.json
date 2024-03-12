@@ -2,10 +2,9 @@
   "name": "lithe-middleware",
   "version": "0.0.8",
   "type": "module",
+  "main": "src/main.js",
+  "types": "src/types.d.ts",
   "scripts": {
-    "build:cjs": "tsc",
-    "build:esm": "tsc -p tsconfig.esm.json",
-    "build": "pnpm build:cjs && pnpm build:esm",
     "format": "clear && biome check --quote-style=single --semicolons=as-needed --arrow-parentheses=as-needed --json-formatter-indent-style=space --apply-unsafe .",
     "lint": "clear && biome lint .",
     "test:watch": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" npx jest --watch --coverage",
@@ -29,24 +28,5 @@
     "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
   },
-  "files": [
-    "./dist/**/main.d.ts",
-    "./dist/**/main.js.map",
-    "./dist/**/main.js",
-    "./dist/**/types.d.ts",
-    "./dist/**/types.js.map",
-    "./dist/**/types.js"
-  ],
-  "exports": {
-    ".": {
-      "require": {
-        "types": "./dist/cjs/main.d.ts",
-        "default": "./dist/cjs/main.js"
-      },
-      "import": {
-        "types": "./dist/esm/main.d.ts",
-        "default": "./dist/esm/main.js"
-      }
-    }
-  }
+  "files": ["./src/main.js", "./src/types.d.ts"]
 }
