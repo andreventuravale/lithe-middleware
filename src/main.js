@@ -20,6 +20,8 @@ const builder =
 
 				const name = nameOf(current)
 
+				console.log(current, name)
+
 				try {
 					await notifyWithoutOutput(plugins, {
 						type: 'invocation-begin',
@@ -148,21 +150,25 @@ const builder =
 
 export default builder
 
-function nameOf(item) {
-	if (typeof item === 'function') {
-		return item.name
-	}
-
-	if (
+function isNamed(item) {
+	return (
 		Array.isArray(item) &&
 		item.length === 2 &&
 		typeof item[0] === 'string' &&
 		typeof item[1] === 'function'
-	) {
+	)
+}
+
+function isRelative(item) {
+	return Array.isArray(item) && item.length === 3
+}
+
+function nameOf(item) {
+	if (isNamed(item)) {
 		return item[0]
 	}
 
-	if (Array.isArray(item) && item.length === 3) {
+	if (isRelative(item)) {
 		return nameOf(item[0])
 	}
 }
@@ -223,9 +229,9 @@ function modify(pipelineLevelList, requestLevelList) {
 	const initialLength = result.length
 
 	for (const modification of modifications) {
-		if (typeof modification === 'function') {
+		if (typeof modification === 'function' || isNamed(modification)) {
 			result.splice(initialLength, 0, modification)
-		} else if (modification.length === 3) {
+		} else if (isRelative(modification)) {
 			const [middleware, action, ref] = modification
 
 			const index = result.findIndex(existing => nameOf(existing) === ref)
