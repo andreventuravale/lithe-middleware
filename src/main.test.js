@@ -718,3 +718,31 @@ test('(Plugins) Events can modify the output.', async () => {
 		traces: ['first', 'second'],
 	})
 })
+
+test('Connects to another middleware.', async () => {
+	const second = next => async input => {
+		const output = Object.assign({}, input, { bar: 'baz' })
+
+		return await next(output)
+	}
+
+	const pipeline2 = builder()('second', [second])
+
+	const first = next => async input => {
+		const segment = pipeline2.connect(next)
+
+		const request = segment()
+
+		const response = await request(input)
+
+		return await next(response)
+	}
+
+	const pipeline1 = builder()('first', [first])
+
+	const request = pipeline1()
+
+	const response = await request({ foo: 'bar' })
+
+	expect(response).toEqual({ foo: 'bar', bar: 'baz' })
+})
