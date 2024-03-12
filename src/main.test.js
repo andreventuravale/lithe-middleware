@@ -690,11 +690,11 @@ test('(Plugins) Events can modify the output.', async () => {
 	const pipeline = builder({
 		plugins: [
 			{
-				intercept: async (event, { patch }) => {
+				intercept: async (event, tools) => {
 					if (event.type === 'invocation-end' && event.status === 'success') {
 						const { name, output } = event
 
-						return patch(output, draft => {
+						return tools.patch(output, draft => {
 							draft.traces ??= []
 
 							draft.traces.push(name)
@@ -719,7 +719,7 @@ test('(Plugins) Events can modify the output.', async () => {
 	})
 })
 
-test.only('Connects to another middleware.', async () => {
+test('Connects to another middleware.', async () => {
 	const intercept = func()
 
 	const options = {
