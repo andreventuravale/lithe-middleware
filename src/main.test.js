@@ -719,14 +719,24 @@ test('(Plugins) Events can modify the output.', async () => {
 	})
 })
 
-test('Connects to another middleware.', async () => {
+test.only('Connects to another middleware.', async () => {
+	const intercept = func()
+
+	const options = {
+		plugins: [
+			{
+				intercept,
+			},
+		],
+	}
+
 	const second = next => async input => {
 		const output = Object.assign({}, input, { bar: 'baz' })
 
 		return await next(output)
 	}
 
-	const pipeline2 = builder()('second', [second])
+	const pipeline2 = builder(options)('second', [second])
 
 	const first = next => async input => {
 		const segment = pipeline2.connect(next)
@@ -744,11 +754,65 @@ test('Connects to another middleware.', async () => {
 		return await next(output)
 	}
 
-	const pipeline1 = builder()('first', [first, third])
+	const pipeline1 = builder(options)('first', [first, third])
 
 	const request = pipeline1()
 
 	const response = await request({ foo: 'bar' })
 
 	expect(response).toEqual({ foo: 'bar', bar: 'baz', qux: 'waldo' })
+
+	verify(
+		intercept({
+			type: 'request-begin',
+			input: { foo: 'bar' },
+			pipelineName: 'first',
+			prid: undefined,
+			rid: matchers.isA(String),
+		}),
+	)
+
+	verify(
+		intercept({
+			type: 'request-begin',
+			input: { foo: 'bar' },
+			pipelineName: 'second',
+			prid: matchers.isA(String),
+			rid: matchers.isA(String),
+		}),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'request-end',
+				input: { foo: 'bar' },
+				output: { foo: 'bar', bar: 'baz' },
+				pipelineName: 'second',
+				prid: matchers.isA(String),
+				rid: matchers.isA(String),
+				status: 'success',
+			},
+			{
+				patch: matchers.isA(Function),
+			},
+		),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'request-end',
+				input: { foo: 'bar' },
+				output: { foo: 'bar', bar: 'baz', qux: 'waldo' },
+				pipelineName: 'first',
+				prid: undefined,
+				rid: matchers.isA(String),
+				status: 'success',
+			},
+			{
+				patch: matchers.isA(Function),
+			},
+		),
+	)
 })

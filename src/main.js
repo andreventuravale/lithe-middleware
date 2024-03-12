@@ -267,7 +267,7 @@ const notifyWithoutOutput = async (plugins, event) => {
 	const frozenEvent = freezeUp(event)
 
 	for (const plugin of plugins) {
-		await plugin.intercept?.(frozenEvent, { patch: produce })
+		await plugin.intercept?.(frozenEvent)
 	}
 }
 
