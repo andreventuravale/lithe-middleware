@@ -823,16 +823,16 @@ test('(Plugins) Events can modify the output.', async () => {
 	})
 })
 
-test.only('Connects to another middleware.', async () => {
+test('Connects to another middleware.', async () => {
 	const intercept = func()
 
 	const uuids = [
-		'7f92590a-1baa-4954-9dc8-75a7b51574fd',
-		'1f8bcb4e-12d9-4bf9-ad2f-42215f69d03c',
-		'e9480ca9-6a3f-4fb9-b07a-ed93ac9202d1',
-		'e5f2da88-cd2c-4e9f-85ae-3169a8ac34f0',
-		'd220382e-5d7b-43fd-84ce-2a3916f24911',
-		'50b95581-99db-476f-9805-ccb58cfd466a',
+		'7f92590a-1baa-4954-9dc8-75a7b51574fd', // rid 1
+		'1f8bcb4e-12d9-4bf9-ad2f-42215f69d03c', // iid 1
+		'e9480ca9-6a3f-4fb9-b07a-ed93ac9202d1', // rid 2
+		'e5f2da88-cd2c-4e9f-85ae-3169a8ac34f0', // iid 2
+		'd220382e-5d7b-43fd-84ce-2a3916f24911', // connect
+		'50b95581-99db-476f-9805-ccb58cfd466a', // iid 3
 	]
 
 	const options = {

@@ -16,6 +16,8 @@ const builder =
 			const rid = uuid()
 
 			const invoke = async (current, next, input) => {
+				console.log({ current })
+
 				const iid = uuid()
 
 				const name = nameOf(current)
