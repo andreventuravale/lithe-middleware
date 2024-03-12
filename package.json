@@ -8,8 +8,8 @@
     "build": "pnpm build:cjs && pnpm build:esm",
     "format": "clear && biome check --quote-style=single --semicolons=as-needed --arrow-parentheses=as-needed --json-formatter-indent-style=space --apply-unsafe .",
     "lint": "clear && biome lint .",
-    "test:watch": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" npx jest --watch",
-    "test": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" npx jest"
+    "test:watch": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" npx jest --watch --coverage",
+    "test": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" npx jest --coverage"
   },
   "keywords": ["design patterns", "middleware", "responsibility chain"],
   "author": "Andre Vale <andreventuravale@gmail.com>",
