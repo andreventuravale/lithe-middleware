@@ -735,14 +735,20 @@ test('Connects to another middleware.', async () => {
 
 		const response = await request(input)
 
-		return await next(response)
+		return response
 	}
 
-	const pipeline1 = builder()('first', [first])
+	const third = next => async input => {
+		const output = Object.assign({}, input, { qux: 'waldo' })
+
+		return await next(output)
+	}
+
+	const pipeline1 = builder()('first', [first, third])
 
 	const request = pipeline1()
 
 	const response = await request({ foo: 'bar' })
 
-	expect(response).toEqual({ foo: 'bar', bar: 'baz' })
+	expect(response).toEqual({ foo: 'bar', bar: 'baz', qux: 'waldo' })
 })

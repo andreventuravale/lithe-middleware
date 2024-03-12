@@ -7,7 +7,7 @@
   "scripts": {
     "format": "clear && biome check --quote-style=single --semicolons=as-needed --arrow-parentheses=as-needed --json-formatter-indent-style=space --apply-unsafe .",
     "lint": "clear && biome lint .",
-    "test:watch": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" npx jest --watch --coverage",
+    "test:watch": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" npx jest --coverage --watch",
     "test": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" npx jest --coverage"
   },
   "keywords": ["design patterns", "middleware", "responsibility chain"],
