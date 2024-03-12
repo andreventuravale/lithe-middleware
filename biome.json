@@ -1,4 +1,7 @@
 {
+  "files": {
+    "ignore": ["coverage/**"]
+  },
   "javascript": {
     "globals": ["describe", "expect", "test"]
   },

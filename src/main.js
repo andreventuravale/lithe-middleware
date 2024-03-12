@@ -1,32 +1,19 @@
 import { randomUUID } from 'node:crypto'
 import { freeze, produce } from 'immer'
-import type {
-	Middleware,
-	Next,
-	Pipeline,
-	PipelineEventsWithOutput,
-	PipelineEventsWithoutOutput,
-	PipelineFactoryBuilder,
-	PipelineModification,
-} from './types.js'
 
 const RID_KEY = Symbol('rid')
 
-export * from './types.js'
-
-const builder: PipelineFactoryBuilder =
+const builder =
 	(options = {}) =>
 	(pipelineName, middlewares = []) => {
 		const { plugins = [], parent } = options
 
 		const prid = parent?.[RID_KEY]
 
-		const pipeline: Pipeline = (modifications = []) => {
+		const pipeline = (modifications = []) => {
 			const rid = randomUUID()
 
-			const notifyWithOutput = async (
-				event: Readonly<PipelineEventsWithOutput>,
-			) => {
+			const notifyWithOutput = async event => {
 				switch (event.type) {
 					case 'invocation-end':
 						if (!event.name) {
@@ -47,9 +34,7 @@ const builder: PipelineFactoryBuilder =
 				return output
 			}
 
-			const notifyWithoutOutput = async (
-				event: Readonly<PipelineEventsWithoutOutput>,
-			) => {
+			const notifyWithoutOutput = async event => {
 				switch (event.type) {
 					case 'invocation-begin':
 					case 'invocation-end':
@@ -88,8 +73,8 @@ const builder: PipelineFactoryBuilder =
 
 					const output = freeze(await handler(input), true)
 
-					const finalOutput = freeze(
-						(await notifyWithOutput({
+					const outputFromPlugins = freeze(
+						await notifyWithOutput({
 							type: 'invocation-end',
 							input,
 							output,
@@ -99,12 +84,14 @@ const builder: PipelineFactoryBuilder =
 							prid,
 							rid,
 							iid,
-						})) ?? output,
+						}),
 						true,
 					)
 
-					return finalOutput
+					return outputFromPlugins ?? output
 				} catch (error) {
+					console.log(21312312312, { error })
+
 					await notifyWithoutOutput({
 						type: 'invocation-end',
 						input,
@@ -121,7 +108,7 @@ const builder: PipelineFactoryBuilder =
 				}
 			}
 
-			return async <Output>(input) => {
+			return async input => {
 				await notifyWithoutOutput({
 					type: 'request-begin',
 					input,
@@ -141,7 +128,7 @@ const builder: PipelineFactoryBuilder =
 
 					let middleware = sequence.shift()
 
-					const next: Next = async patch => {
+					const next = async patch => {
 						middleware = sequence.shift()
 
 						return patch
@@ -157,7 +144,7 @@ const builder: PipelineFactoryBuilder =
 						output = await invoke(current, next, output)
 					}
 
-					return output as Output
+					return output
 				} catch (error) {
 					requestError = error
 
@@ -191,7 +178,7 @@ const builder: PipelineFactoryBuilder =
 		pipeline.connect = next => {
 			return builder({ ...options, parent: next })(pipelineName, [
 				...middlewares,
-				() => next as any,
+				() => next,
 			])
 		}
 
@@ -200,10 +187,7 @@ const builder: PipelineFactoryBuilder =
 
 export default builder
 
-function modify(
-	pipelineLevelList: Middleware[],
-	requestLevelList: PipelineModification[],
-): Middleware[] {
+function modify(pipelineLevelList, requestLevelList) {
 	const graph = {}
 
 	const weightMap = {}
@@ -291,7 +275,7 @@ function modify(
 	return result
 }
 
-function getName(item?: Middleware | PipelineModification) {
+function getName(item) {
 	if (typeof item === 'function') {
 		return item.name
 	}
