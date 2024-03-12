@@ -1,4 +1,4 @@
-import { func, matchers, verify } from 'testdouble'
+import { func, matchers, verify, when } from 'testdouble'
 import builder from './main.js'
 
 test('Happy path.', async () => {
@@ -853,13 +853,23 @@ test('Connects to another middleware.', async () => {
 
 	expect(response).toEqual({ foo: 'bar', bar: 'baz', qux: 'waldo' })
 
+	let firstRid = {}
+
+	let secondRid = {}
+
 	verify(
 		intercept({
 			type: 'request-begin',
 			input: { foo: 'bar' },
 			pipelineName: 'first',
 			prid: undefined,
-			rid: matchers.isA(String),
+			rid: matchers.argThat(value => {
+				firstRid = { value }
+
+				console.log({ firstRid })
+
+				return typeof value === 'string'
+			}),
 		}),
 	)
 
@@ -868,8 +878,14 @@ test('Connects to another middleware.', async () => {
 			type: 'request-begin',
 			input: { foo: 'bar' },
 			pipelineName: 'second',
-			prid: matchers.isA(String),
-			rid: matchers.isA(String),
+			prid: matchers.argThat(value => value === firstRid.value),
+			rid: matchers.argThat(value => {
+				secondRid = { value }
+
+				console.log({ secondRid })
+
+				return typeof value === 'string'
+			}),
 		}),
 	)
 
@@ -880,8 +896,8 @@ test('Connects to another middleware.', async () => {
 				input: { foo: 'bar' },
 				output: { foo: 'bar', bar: 'baz' },
 				pipelineName: 'second',
-				prid: matchers.isA(String),
-				rid: matchers.isA(String),
+				prid: matchers.argThat(value => value === firstRid.value),
+				rid: matchers.argThat(value => value === secondRid.value),
 				status: 'success',
 			},
 			{
@@ -900,7 +916,7 @@ test('Connects to another middleware.', async () => {
 				output: { foo: 'bar', bar: 'baz', qux: 'waldo' },
 				pipelineName: 'first',
 				prid: undefined,
-				rid: matchers.isA(String),
+				rid: matchers.argThat(value => value === firstRid.value),
 				status: 'success',
 			},
 			{
