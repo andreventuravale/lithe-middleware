@@ -76,6 +76,7 @@ test('Propagates errors directly to the pipeline caller without rippling back th
 	}).rejects.toThrow('rrrrrrrrrrrr')
 
 	verify(bCatch(), { times: 0, ignoreExtraArgs: true })
+
 	verify(aCatch(), { times: 0, ignoreExtraArgs: true })
 })
 
@@ -541,59 +542,145 @@ test('Forbids changes to the input (deep in arrays).', async () => {
 // 	// )
 // })
 
-// // test('(Plugins) Events with failures.', async (t) => {
-// //   const intercept = func<PipelineInterceptor>()
+test('(Plugins) Events with failures.', async () => {
+	const intercept = func()
 
-// //   const first = (next) => async (input) => await next(input + '1')
+	const first = next => async input => await next(`${input}1`)
 
-// //   const second = (next) => async (input) => await next(input + ' 2')
+	const second = next => async input => await next(`${input} 2`)
 
-// //   function third() {
-// //     return async () => {
-// //       throw new Error('error on third')
-// //     }
-// //   }
+	function third() {
+		return async () => {
+			throw new Error('error on third')
+		}
+	}
 
-// //   const pipeline = builder({
-// //     plugins: [
-// //       {
-// //         intercept
-// //       }
-// //     ]
-// //   })('test', [['first', first], ['second', second], third])
+	const pipeline = builder({
+		plugins: [
+			{
+				intercept,
+			},
+		],
+	})('test', [['first', first], ['second', second], third])
 
-// //   const request = pipeline()
+	const request = pipeline()
 
-// //   await t.throwsAsync(
-// //     async () => {
-// //       await request('')
-// //     },
-// //     { message: 'error on third' }
-// //   )
+	await expect(async () => {
+		await request('')
+	}).rejects.toThrow('error on third')
 
-// //   verify(
-// //     intercept({ type: 'invocation-begin', input: '', name: 'first' }, matchers.anything())
-// //   )
-// //   verify(
-// //     intercept({ type: 'invocation-begin', input: '1', name: 'second' }, matchers.anything())
-// //   )
-// //   verify(
-// //     intercept({ type: 'invocation-begin', input: '1 2', name: 'third' }, matchers.anything())
-// //   )
+	const tools = {
+		createDraft: matchers.isA(Function),
+		finishDraft: matchers.isA(Function),
+		produce: matchers.isA(Function),
+	}
 
-// //   verify(
-// //     intercept(
-// //       {
-// //         type: 'end',
-// //         input: '1 2',
-// //         name: 'third',
-// //         status: 'failure',
-// //         error: new Error('error on third')
-// //       },
-// //       matchers.anything()
-// //     )
-// //   )
-// // })
+	verify(
+		intercept({
+			type: 'request-begin',
+			input: '',
+			pipelineName: 'test',
+			prid: undefined,
+			rid: matchers.isA(String),
+		}),
+	)
+
+	verify(
+		intercept({
+			type: 'invocation-begin',
+			iid: matchers.isA(String),
+			input: '',
+			name: 'first',
+			pipelineName: 'test',
+			prid: undefined,
+			rid: matchers.isA(String),
+		}),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'invocation-end',
+				iid: matchers.isA(String),
+				input: '',
+				name: 'first',
+				output: '1',
+				pipelineName: 'test',
+				prid: undefined,
+				rid: matchers.isA(String),
+				status: 'success',
+			},
+			tools,
+		),
+	)
+
+	verify(
+		intercept({
+			type: 'invocation-begin',
+			iid: matchers.isA(String),
+			input: '1',
+			name: 'second',
+			pipelineName: 'test',
+			prid: undefined,
+			rid: matchers.isA(String),
+		}),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'invocation-end',
+				iid: matchers.isA(String),
+				input: '1',
+				name: 'second',
+				output: '1 2',
+				pipelineName: 'test',
+				prid: undefined,
+				rid: matchers.isA(String),
+				status: 'success',
+			},
+			tools,
+		),
+	)
+
+	verify(
+		intercept({
+			type: 'invocation-begin',
+			iid: matchers.isA(String),
+			input: '1 2',
+			name: 'third',
+			pipelineName: 'test',
+			prid: undefined,
+			rid: matchers.isA(String),
+		}),
+	)
+
+	verify(
+		intercept({
+			type: 'invocation-end',
+			error: matchers.argThat(({ message }) => message === 'error on third'),
+			iid: matchers.isA(String),
+			input: '1 2',
+			name: 'third',
+			pipelineName: 'test',
+			prid: undefined,
+			rid: matchers.isA(String),
+			status: 'failure',
+		}),
+	)
+
+	verify(
+		intercept({
+			type: 'request-end',
+			error: matchers.argThat(({ message }) => message === 'error on third'),
+			input: '',
+			pipelineName: 'test',
+			prid: undefined,
+			rid: matchers.isA(String),
+			status: 'failure',
+		}),
+	)
+})
 
 test('Interdependency among the incoming modifications.', async () => {
 	const pipeline = builder()('test', [])
