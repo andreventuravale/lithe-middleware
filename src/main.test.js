@@ -1029,7 +1029,7 @@ test('Connects to another middleware.', async () => {
 	)
 })
 
-test('(Plugins) Forbids interceptors to directly change ( mutate ) the output.', async () => {
+test('(Plugins) Forbids interceptors to directly change the output.', async () => {
 	const foo = next => async input => await next(input)
 
 	const request = builder({
@@ -1051,7 +1051,7 @@ test('(Plugins) Forbids interceptors to directly change ( mutate ) the output.',
 	)
 })
 
-test('(Plugins) Forbids interceptors to directly change ( mutate ) the output (deep).', async () => {
+test('(Plugins) Forbids interceptors to directly change the output (deep).', async () => {
 	const foo = next => async input => await next(input)
 
 	const request = builder({
@@ -1071,7 +1071,7 @@ test('(Plugins) Forbids interceptors to directly change ( mutate ) the output (d
 	).rejects.toThrow('Cannot add property 1, object is not extensible')
 })
 
-test('(Plugins) Forbids interceptors to directly change ( mutate ) the input.', async () => {
+test('(Plugins) Forbids interceptors to directly change the input.', async () => {
 	const foo = next => async input => await next(input)
 
 	const request = builder({
@@ -1091,7 +1091,7 @@ test('(Plugins) Forbids interceptors to directly change ( mutate ) the input.', 
 	)
 })
 
-test('(Plugins) Forbids interceptors to directly change ( mutate ) the input (deep).', async () => {
+test('(Plugins) Forbids interceptors to directly change the input (deep).', async () => {
 	const foo = next => async input => await next(input)
 
 	const request = builder({
