@@ -780,12 +780,40 @@ test('A middleware can stop the pipeline execution by not calling next.', async 
 	expect(await builder()('test', [b, a(true), r])()('foo')).toEqual('foo ba')
 })
 
-test('(Plugins) Events can modify the output.', async () => {
-	const first = next => async input =>
-		await next(Object.assign({}, input, { foo: 'bar' }))
+test.only('(Plugins) Events can replace the output with something else.', async () => {
+	const first = ['first', next => async input => await next(`${input}1`)]
 
-	const second = next => async input =>
-		await next(Object.assign({}, input, { bar: 'baz' }))
+	const second = ['second', next => async input => await next(`${input}2`)]
+
+	const pipeline = builder({
+		plugins: [
+			{
+				intercept: async event => {
+					if (event.type === 'invocation-end' && event.status === 'success') {
+						return `${event.output}${event.output}`
+					}
+				},
+			},
+		],
+	})('test', [first, second])
+
+	const request = pipeline()
+
+	const response = await request('')
+
+	expect(response).toEqual('112112')
+})
+
+test('(Plugins) Events can use the tools to derive a new output based on the original.', async () => {
+	const first = [
+		'first',
+		next => async input => await next(Object.assign({}, input, { foo: 'bar' })),
+	]
+
+	const second = [
+		'second',
+		next => async input => await next(Object.assign({}, input, { bar: 'baz' })),
+	]
 
 	const pipeline = builder({
 		plugins: [
@@ -807,10 +835,7 @@ test('(Plugins) Events can modify the output.', async () => {
 				},
 			},
 		],
-	})('test', [
-		['first', first],
-		['second', second],
-	])
+	})('test', [first, second])
 
 	const request = pipeline()
 

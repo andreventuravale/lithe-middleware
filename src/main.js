@@ -286,14 +286,19 @@ const notifyWithOutput = async (plugins, event) => {
 	let output = event.output
 
 	for (const plugin of plugins) {
-		const frozenEvent = freezeUp({ ...event, output })
+		// TODO: freeze
+		const frozenEvent = { ...event, output }
 
-		output =
-			(await plugin.intercept?.(frozenEvent, {
-				createDraft,
-				finishDraft,
-				produce,
-			})) ?? output
+		const eventOutput = await plugin.intercept?.(frozenEvent, {
+			createDraft,
+			finishDraft,
+			produce,
+		})
+
+		if (eventOutput) {
+			// TODO: freeze
+			output = eventOutput
+		}
 	}
 
 	return output
