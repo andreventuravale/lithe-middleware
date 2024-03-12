@@ -780,7 +780,7 @@ test('A middleware can stop the pipeline execution by not calling next.', async 
 	expect(await builder()('test', [b, a(true), r])()('foo')).toEqual('foo ba')
 })
 
-test.only('(Plugins) Events can replace the output with something else.', async () => {
+test('(Plugins) Events can replace the output with something else.', async () => {
 	const first = ['first', next => async input => await next(`${input}1`)]
 
 	const second = ['second', next => async input => await next(`${input}2`)]
