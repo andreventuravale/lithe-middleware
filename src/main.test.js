@@ -416,7 +416,7 @@ test('Forbids changes to the input (deep in arrays).', async () => {
 	)
 })
 
-test('(Plugins) Events.', async () => {
+test('(Plugins) Success events.', async () => {
 	const intercept = func()
 
 	const uuids = [
@@ -566,7 +566,7 @@ test('(Plugins) Events.', async () => {
 	)
 })
 
-test('(Plugins) Events with failures.', async () => {
+test('(Plugins) Failures events.', async () => {
 	const intercept = func()
 
 	const first = ['foo', next => async input => await next(`${input}1`)]
@@ -1027,4 +1027,84 @@ test('Connects to another middleware.', async () => {
 			tools,
 		),
 	)
+})
+
+test('(Plugins) Forbids interceptors to directly change ( mutate ) the output.', async () => {
+	const foo = next => async input => await next(input)
+
+	const request = builder({
+		plugins: [
+			{
+				intercept({ type, output }) {
+					if (type.endsWith('-end')) {
+						output.foo = 'bar'
+					}
+				},
+			},
+		],
+	})('test', [foo])()
+
+	await expect(
+		async () => await request({ foo: { bar: 'baz' } }),
+	).rejects.toThrow(
+		"Cannot assign to read only property 'foo' of object '#<Object>'",
+	)
+})
+
+test('(Plugins) Forbids interceptors to directly change ( mutate ) the output (deep).', async () => {
+	const foo = next => async input => await next(input)
+
+	const request = builder({
+		plugins: [
+			{
+				intercept({ type, output }) {
+					if (type.endsWith('-end')) {
+						output.foo.bar.push('qux')
+					}
+				},
+			},
+		],
+	})('test', [foo])()
+
+	await expect(
+		async () => await request({ foo: { bar: ['baz'] } }),
+	).rejects.toThrow('Cannot add property 1, object is not extensible')
+})
+
+test('(Plugins) Forbids interceptors to directly change ( mutate ) the input.', async () => {
+	const foo = next => async input => await next(input)
+
+	const request = builder({
+		plugins: [
+			{
+				intercept({ input }) {
+					input.foo = 'bar'
+				},
+			},
+		],
+	})('test', [foo])()
+
+	await expect(
+		async () => await request({ foo: { bar: 'baz' } }),
+	).rejects.toThrow(
+		"Cannot assign to read only property 'foo' of object '#<Object>'",
+	)
+})
+
+test('(Plugins) Forbids interceptors to directly change ( mutate ) the input (deep).', async () => {
+	const foo = next => async input => await next(input)
+
+	const request = builder({
+		plugins: [
+			{
+				intercept({ input }) {
+					input.foo.bar.push('qux')
+				},
+			},
+		],
+	})('test', [foo])()
+
+	await expect(
+		async () => await request({ foo: { bar: ['baz'] } }),
+	).rejects.toThrow('Cannot add property 1, object is not extensible')
 })
