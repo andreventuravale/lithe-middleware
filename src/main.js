@@ -1,72 +1,32 @@
 import { randomUUID } from 'node:crypto'
 import { freeze, produce } from 'immer'
 
-const RID_KEY = Symbol('rid')
+const ridKey = Symbol('rid')
 
-/**
- * @type {import('./types').default}
- */
 const builder =
 	(options = {}) =>
 	(pipelineName, middlewares = []) => {
-		const { plugins = [], parent } = options
+		const { parent, plugins = [] } = options
 
-		const prid = parent?.[RID_KEY]
+		const prid = parent?.[ridKey]
 
 		const pipeline = (modifications = []) => {
 			const rid = randomUUID()
 
-			const notifyWithOutput = async event => {
-				switch (event.type) {
-					case 'invocation-end':
-						if (!event.name) {
-							return
-						}
-				}
-
-				let output = event.output
-
-				for (const plugin of plugins) {
-					const frozenEvent = freeze({ ...event, output }, true)
-
-					output =
-						(await plugin.intercept?.(frozenEvent, { patch: produce })) ??
-						output
-				}
-
-				return output
-			}
-
-			const notifyWithoutOutput = async event => {
-				switch (event.type) {
-					case 'invocation-begin':
-					case 'invocation-end':
-						if (!event.name) {
-							return
-						}
-				}
-
-				const frozenEvent = freeze(event, true)
-
-				for (const plugin of plugins) {
-					await plugin.intercept?.(frozenEvent, { patch: produce })
-				}
-			}
-
 			const invoke = async (middleware, next, input) => {
 				const iid = randomUUID()
 
-				const name = getName(middleware)
+				const name = nameOf(middleware)
 
 				try {
-					await notifyWithoutOutput({
+					await notifyWithoutOutput(plugins, {
 						type: 'invocation-begin',
+						iid,
 						input,
 						name,
 						pipelineName,
 						prid,
 						rid,
-						iid,
 					})
 
 					const middlewareFn =
@@ -77,34 +37,32 @@ const builder =
 					const output = freeze(await handler(input), true)
 
 					const outputFromPlugins = freeze(
-						await notifyWithOutput({
+						await notifyWithOutput(plugins, {
 							type: 'invocation-end',
+							iid,
 							input,
-							output,
 							name,
-							status: 'success',
+							output,
 							pipelineName,
 							prid,
 							rid,
-							iid,
+							status: 'success',
 						}),
 						true,
 					)
 
 					return outputFromPlugins ?? output
 				} catch (error) {
-					console.log(21312312312, { error })
-
-					await notifyWithoutOutput({
+					await notifyWithoutOutput(plugins, {
 						type: 'invocation-end',
+						error,
+						iid,
 						input,
 						name,
-						status: 'failure',
-						error,
 						pipelineName,
 						prid,
 						rid,
-						iid,
+						status: 'failure',
 					})
 
 					throw error
@@ -112,7 +70,7 @@ const builder =
 			}
 
 			return async input => {
-				await notifyWithoutOutput({
+				await notifyWithoutOutput(plugins, {
 					type: 'request-begin',
 					input,
 					pipelineName,
@@ -137,7 +95,7 @@ const builder =
 						return patch
 					}
 
-					next[RID_KEY] = rid
+					next[ridKey] = rid
 
 					while (middleware) {
 						const current = middleware
@@ -154,41 +112,59 @@ const builder =
 					throw error
 				} finally {
 					if (requestError) {
-						await notifyWithoutOutput({
+						await notifyWithoutOutput(plugins, {
 							type: 'request-end',
-							input,
-							status: 'failure',
 							error: requestError,
+							input,
 							pipelineName,
 							prid,
 							rid,
+							status: 'failure',
 						})
 					} else {
-						await notifyWithOutput({
+						await notifyWithOutput(plugins, {
 							type: 'request-end',
 							input,
 							output,
-							status: 'success',
 							pipelineName,
 							prid,
 							rid,
+							status: 'success',
 						})
 					}
 				}
 			}
 		}
 
-		pipeline.connect = next => {
-			return builder({ ...options, parent: next })(pipelineName, [
+		pipeline.connect = next =>
+			builder({ ...options, parent: next })(pipelineName, [
 				...middlewares,
 				() => next,
 			])
-		}
 
 		return pipeline
 	}
 
 export default builder
+
+function nameOf(item) {
+	if (typeof item === 'function') {
+		return item.name
+	}
+
+	if (
+		Array.isArray(item) &&
+		item.length === 2 &&
+		typeof item[0] === 'string' &&
+		typeof item[1] === 'function'
+	) {
+		return item[0]
+	}
+
+	if (Array.isArray(item) && item.length === 3) {
+		return nameOf(item[0])
+	}
+}
 
 function modify(pipelineLevelList, requestLevelList) {
 	const graph = {}
@@ -203,7 +179,7 @@ function modify(pipelineLevelList, requestLevelList) {
 	for (const modification of requestLevelList) {
 		const type = modification[1]
 
-		const name = getName(modification)
+		const name = nameOf(modification)
 
 		switch (type) {
 			case 'before':
@@ -224,14 +200,14 @@ function modify(pipelineLevelList, requestLevelList) {
 	}
 
 	for (const modification of requestLevelList) {
-		const name = getName(modification)
+		const name = nameOf(modification)
 
 		weightMap[name] = weightOf(name)
 	}
 
 	const modifications = requestLevelList.slice(0).sort((a, b) => {
-		const nameA = getName(a)
-		const nameB = getName(b)
+		const nameA = nameOf(a)
+		const nameB = nameOf(b)
 		const x = weightMap[nameA]
 		const y = weightMap[nameB]
 		const i = requestLevelList.indexOf(a)
@@ -251,7 +227,7 @@ function modify(pipelineLevelList, requestLevelList) {
 		} else if (modification.length === 3) {
 			const [middleware, action, ref] = modification
 
-			const index = result.findIndex(existing => getName(existing) === ref)
+			const index = result.findIndex(existing => nameOf(existing) === ref)
 
 			if (index < 0) {
 				throw new Error(`could not find middleware named: "${ref}"`)
@@ -265,7 +241,7 @@ function modify(pipelineLevelList, requestLevelList) {
 		} else {
 			const [, name] = modification
 
-			const index = result.findIndex(existing => getName(existing) === name)
+			const index = result.findIndex(existing => nameOf(existing) === name)
 
 			if (index < 0) {
 				throw new Error(`could not find middleware named: "${name}"`)
@@ -278,21 +254,38 @@ function modify(pipelineLevelList, requestLevelList) {
 	return result
 }
 
-function getName(item) {
-	if (typeof item === 'function') {
-		return item.name
+const notifyWithoutOutput = async (plugins, event) => {
+	switch (event.type) {
+		case 'invocation-begin':
+		case 'invocation-end':
+			if (!event.name) {
+				return
+			}
 	}
 
-	if (
-		Array.isArray(item) &&
-		item.length === 2 &&
-		typeof item[0] === 'string' &&
-		typeof item[1] === 'function'
-	) {
-		return item[0]
+	const frozenEvent = freeze(event, true)
+
+	for (const plugin of plugins) {
+		await plugin.intercept?.(frozenEvent, { patch: produce })
+	}
+}
+
+const notifyWithOutput = async (plugins, event) => {
+	switch (event.type) {
+		case 'invocation-end':
+			if (!event.name) {
+				return
+			}
 	}
 
-	if (Array.isArray(item) && item.length === 3) {
-		return getName(item[0])
+	let output = event.output
+
+	for (const plugin of plugins) {
+		const frozenEvent = freeze({ ...event, output }, true)
+
+		output =
+			(await plugin.intercept?.(frozenEvent, { patch: produce })) ?? output
 	}
+
+	return output
 }
