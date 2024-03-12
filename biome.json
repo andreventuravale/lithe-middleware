@@ -1,0 +1,18 @@
+{
+  "javascript": {
+    "globals": ["describe", "expect", "test"]
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "correctness": {
+        "noUndeclaredVariables": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noImplicitAnyLet": "off"
+      },
+      "recommended": true
+    }
+  }
+}

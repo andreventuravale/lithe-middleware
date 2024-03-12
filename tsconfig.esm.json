@@ -7,7 +7,7 @@
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react",
-    "lib": ["DOM", "ES2020", "ESNext.AsyncIterable"],
+    "lib": ["ES2020", "ESNext.AsyncIterable"],
     "module": "ESNext",
     "moduleResolution": "node",
     "noImplicitAny": false,
