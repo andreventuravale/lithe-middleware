@@ -8,15 +8,15 @@ const freezeUp = x => freeze(x, true)
 const builder =
 	(options = {}) =>
 	(pipelineName, middlewares = []) => {
-		const { parent, plugins = [] } = options
+		const { parent, plugins = [], uuid = randomUUID } = options
 
 		const prid = parent?.[ridKey]
 
 		const pipeline = (modifications = []) => {
-			const rid = randomUUID()
+			const rid = uuid()
 
 			const invoke = async (current, next, input) => {
-				const iid = randomUUID()
+				const iid = uuid()
 
 				const name = nameOf(current)
 

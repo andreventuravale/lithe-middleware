@@ -416,116 +416,155 @@ test('Forbids changes to the input (deep in arrays).', async () => {
 	)
 })
 
-// test('(Plugins) Events.', async () => {
-// 	const intercept = func<PipelineInterceptor>()
+test('(Plugins) Events.', async () => {
+	const intercept = func()
 
-// 	const factory = builder({
-// 		plugins: [
-// 			{
-// 				intercept: intercept,
-// 			},
-// 		],
-// 	})
+	const uuids = [
+		'7f92590a-1baa-4954-9dc8-75a7b51574fd',
+		'1f8bcb4e-12d9-4bf9-ad2f-42215f69d03c',
+		'e9480ca9-6a3f-4fb9-b07a-ed93ac9202d1',
+		'e5f2da88-cd2c-4e9f-85ae-3169a8ac34f0',
+	]
 
-// 	const first = next => async input => await next(`${input}1`)
+	const factory = builder({
+		plugins: [
+			{
+				intercept: intercept,
+			},
+		],
+		uuid: () => uuids.shift(),
+	})
 
-// 	function second(next) {
-// 		return async input => await next(`${input} 2`)
-// 	}
+	const first = ['first', next => async input => await next(`${input}1`)]
 
-// 	const third = next => async input => await next(`${input} 3`)
+	const second = ['second', next => async input => await next(`${input} 2`)]
 
-// 	const pipeline = factory('test', [['first', first], second, ['third', third]])
+	const third = ['third', next => async input => await next(`${input} 3`)]
 
-// 	const request = pipeline()
+	const pipeline = factory('test', [first, second, third])
 
-// 	await request('')
+	const request = pipeline()
 
-// 	verify(
-// 		intercept(
-// 			{
-// 				type: 'invocation-begin',
-// 				input: '1 2',
-// 				name: 'third',
-// 				prid: matchers.anything(),
-// 				pipelineName: 'test',
-// 				rid: matchers.anything(),
-// 				iid: matchers.anything(),
-// 			},
-// 			matchers.anything(),
-// 		),
-// 	)
+	await request('')
 
-// 	verify(
-// 		intercept(
-// 			{
-// 				type: 'invocation-begin',
-// 				input: '1',
-// 				name: 'second',
-// 				prid: matchers.anything(),
-// 				pipelineName: 'test',
-// 				rid: matchers.anything(),
-// 				iid: matchers.anything(),
-// 			},
-// 			matchers.anything(),
-// 		),
-// 	)
+	const tools = {
+		createDraft: matchers.isA(Function),
+		finishDraft: matchers.isA(Function),
+		produce: matchers.isA(Function),
+	}
 
-// 	verify(
-// 		intercept(
-// 			{
-// 				type: 'invocation-begin',
-// 				input: '',
-// 				name: 'first',
-// 				rid: matchers.anything(),
-// 				prid: matchers.anything(),
-// 				pipelineName: 'test',
-// 				iid: matchers.anything(),
-// 			},
-// 			matchers.anything(),
-// 		),
-// 	)
+	verify(
+		intercept({
+			type: 'request-begin',
+			input: '',
+			pipelineName: 'test',
+			prid: undefined,
+			rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+		}),
+	)
 
-// 	t.pass('todo')
+	verify(
+		intercept({
+			type: 'invocation-begin',
+			iid: '1f8bcb4e-12d9-4bf9-ad2f-42215f69d03c',
+			input: '',
+			name: 'first',
+			pipelineName: 'test',
+			prid: undefined,
+			rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+		}),
+	)
 
-// 	// expect(
-// 	//   explain(intercept).calls.map(({ args: [e] }) => [
-// 	//     omit(e, ['prid', 'rid', 'iid'])
-// 	//   ]),
-// 	//   [
-// 	//     [{ type: 'invocation-begin', input: '', name: 'first' }],
-// 	//     [
-// 	//       {
-// 	//         type: 'end',
-// 	//         input: '',
-// 	//         output: '1',
-// 	//         name: 'first',
-// 	//         status: 'success'
-// 	//       }
-// 	//     ],
-// 	//     [{ type: 'invocation-begin', input: '1', name: 'second' }],
-// 	//     [
-// 	//       {
-// 	//         type: 'end',
-// 	//         input: '1',
-// 	//         output: '1 2',
-// 	//         name: 'second',
-// 	//         status: 'success'
-// 	//       }
-// 	//     ],
-// 	//     [{ type: 'invocation-begin', input: '1 2', name: 'third' }],
-// 	//     [
-// 	//       {
-// 	//         type: 'end',
-// 	//         input: '1 2',
-// 	//         output: '1 2 3',
-// 	//         name: 'third',
-// 	//         status: 'success'
-// 	//       }
-// 	//     ]
-// 	//   ]
-// 	// )
-// })
+	verify(
+		intercept({
+			type: 'invocation-begin',
+			iid: 'e9480ca9-6a3f-4fb9-b07a-ed93ac9202d1',
+			input: '1',
+			name: 'second',
+			pipelineName: 'test',
+			prid: undefined,
+			rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+		}),
+	)
+
+	verify(
+		intercept({
+			type: 'invocation-begin',
+			iid: 'e5f2da88-cd2c-4e9f-85ae-3169a8ac34f0',
+			input: '1 2',
+			name: 'third',
+			pipelineName: 'test',
+			prid: undefined,
+			rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+		}),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'invocation-end',
+				iid: 'e5f2da88-cd2c-4e9f-85ae-3169a8ac34f0',
+				input: '1 2',
+				name: 'third',
+				output: '1 2 3',
+				pipelineName: 'test',
+				prid: undefined,
+				rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+				status: 'success',
+			},
+			tools,
+		),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'invocation-end',
+				iid: 'e9480ca9-6a3f-4fb9-b07a-ed93ac9202d1',
+				input: '1',
+				name: 'second',
+				output: '1 2',
+				pipelineName: 'test',
+				prid: undefined,
+				rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+				status: 'success',
+			},
+			tools,
+		),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'invocation-end',
+				iid: '1f8bcb4e-12d9-4bf9-ad2f-42215f69d03c',
+				input: '',
+				output: '1',
+				name: 'first',
+				pipelineName: 'test',
+				prid: undefined,
+				rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+				status: 'success',
+			},
+			tools,
+		),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'request-end',
+				input: '',
+				output: '1 2 3',
+				pipelineName: 'test',
+				prid: undefined,
+				rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+				status: 'success',
+			},
+			tools,
+		),
+	)
+})
 
 test('(Plugins) Events with failures.', async () => {
 	const intercept = func()
@@ -694,38 +733,38 @@ test('Interdependency among the incoming modifications.', async () => {
 		])(''),
 	).toEqual('fedcba')
 
-	// expect(
-	// 	await pipeline([
-	// 		[f, 'before', 'e'],
-	// 		[e, 'before', 'd'],
-	// 		[d, 'before', 'c'],
-	// 		[c, 'before', 'b'],
-	// 		[b, 'before', 'a'],
-	// 		a,
-	// 	])(''),
-	// ).toEqual('fedcba')
+	expect(
+		await pipeline([
+			[f, 'before', 'e'],
+			[e, 'before', 'd'],
+			[d, 'before', 'c'],
+			[c, 'before', 'b'],
+			[b, 'before', 'a'],
+			a,
+		])(''),
+	).toEqual('fedcba')
 
-	// expect(
-	// 	await pipeline([
-	// 		a,
-	// 		[b, 'after', 'a'],
-	// 		[c, 'after', 'b'],
-	// 		[d, 'after', 'c'],
-	// 		[e, 'after', 'd'],
-	// 		[f, 'after', 'e'],
-	// 	])(''),
-	// ).toEqual('abcdef')
+	expect(
+		await pipeline([
+			a,
+			[b, 'after', 'a'],
+			[c, 'after', 'b'],
+			[d, 'after', 'c'],
+			[e, 'after', 'd'],
+			[f, 'after', 'e'],
+		])(''),
+	).toEqual('abcdef')
 
-	// expect(
-	// 	await pipeline([
-	// 		[f, 'after', 'e'],
-	// 		[e, 'after', 'd'],
-	// 		[d, 'after', 'c'],
-	// 		[c, 'after', 'b'],
-	// 		[b, 'after', 'a'],
-	// 		a,
-	// 	])(''),
-	// ).toEqual('abcdef')
+	expect(
+		await pipeline([
+			[f, 'after', 'e'],
+			[e, 'after', 'd'],
+			[d, 'after', 'c'],
+			[c, 'after', 'b'],
+			[b, 'after', 'a'],
+			a,
+		])(''),
+	).toEqual('abcdef')
 })
 
 test('A middleware can stop the pipeline execution by not calling next.', async () => {
@@ -784,8 +823,17 @@ test('(Plugins) Events can modify the output.', async () => {
 	})
 })
 
-test('Connects to another middleware.', async () => {
+test.only('Connects to another middleware.', async () => {
 	const intercept = func()
+
+	const uuids = [
+		'7f92590a-1baa-4954-9dc8-75a7b51574fd',
+		'1f8bcb4e-12d9-4bf9-ad2f-42215f69d03c',
+		'e9480ca9-6a3f-4fb9-b07a-ed93ac9202d1',
+		'e5f2da88-cd2c-4e9f-85ae-3169a8ac34f0',
+		'd220382e-5d7b-43fd-84ce-2a3916f24911',
+		'50b95581-99db-476f-9805-ccb58cfd466a',
+	]
 
 	const options = {
 		plugins: [
@@ -793,31 +841,41 @@ test('Connects to another middleware.', async () => {
 				intercept,
 			},
 		],
+		uuid: () => uuids.shift(),
 	}
 
-	const second = next => async input => {
-		const output = Object.assign({}, input, { bar: 'baz' })
+	const second = [
+		'.2',
+		next => async input => {
+			const output = Object.assign({}, input, { bar: 'baz' })
 
-		return await next(output)
-	}
+			return await next(output)
+		},
+	]
 
-	const pipeline2 = builder(options)('ssecond', [second])
+	const pipeline2 = builder(options)('second', [second])
 
-	const first = next => async input => {
-		const segment = pipeline2.connect(next)
+	const first = [
+		'.1',
+		next => async input => {
+			const segment = pipeline2.connect(next)
 
-		const request = segment()
+			const request = segment()
 
-		const response = await request(input)
+			const response = await request(input)
 
-		return response
-	}
+			return response
+		},
+	]
 
-	const third = next => async input => {
-		const output = Object.assign({}, input, { qux: 'waldo' })
+	const third = [
+		'.3',
+		next => async input => {
+			const output = Object.assign({}, input, { qux: 'waldo' })
 
-		return await next(output)
-	}
+			return await next(output)
+		},
+	]
 
 	const pipeline1 = builder(options)('first', [first, third])
 
@@ -827,9 +885,11 @@ test('Connects to another middleware.', async () => {
 
 	expect(response).toEqual({ foo: 'bar', bar: 'baz', qux: 'waldo' })
 
-	let firstRid = {}
-
-	let secondRid = {}
+	const tools = {
+		createDraft: matchers.isA(Function),
+		finishDraft: matchers.isA(Function),
+		produce: matchers.isA(Function),
+	}
 
 	verify(
 		intercept({
@@ -837,49 +897,8 @@ test('Connects to another middleware.', async () => {
 			input: { foo: 'bar' },
 			pipelineName: 'first',
 			prid: undefined,
-			rid: matchers.argThat(value => {
-				firstRid = { value }
-
-				console.log({ firstRid })
-
-				return typeof value === 'string'
-			}),
+			rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
 		}),
-	)
-
-	verify(
-		intercept({
-			type: 'request-begin',
-			input: { foo: 'bar' },
-			pipelineName: 'ssecond',
-			prid: matchers.argThat(value => value === firstRid.value),
-			rid: matchers.argThat(value => {
-				secondRid = { value }
-
-				console.log({ secondRid })
-
-				return typeof value === 'string'
-			}),
-		}),
-	)
-
-	verify(
-		intercept(
-			{
-				type: 'request-end',
-				input: { foo: 'bar' },
-				output: { foo: 'bar', bar: 'baz' },
-				pipelineName: 'ssecond',
-				prid: matchers.argThat(value => value === firstRid.value),
-				rid: matchers.argThat(value => value === secondRid.value),
-				status: 'success',
-			},
-			{
-				createDraft: matchers.isA(Function),
-				finishDraft: matchers.isA(Function),
-				produce: matchers.isA(Function),
-			},
-		),
 	)
 
 	verify(
@@ -890,14 +909,122 @@ test('Connects to another middleware.', async () => {
 				output: { foo: 'bar', bar: 'baz', qux: 'waldo' },
 				pipelineName: 'first',
 				prid: undefined,
-				rid: matchers.argThat(value => value === firstRid.value),
+				rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
 				status: 'success',
 			},
+			tools,
+		),
+	)
+
+	verify(
+		intercept({
+			type: 'request-begin',
+			input: { foo: 'bar' },
+			pipelineName: 'second',
+			prid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+			rid: 'e9480ca9-6a3f-4fb9-b07a-ed93ac9202d1',
+		}),
+	)
+
+	verify(
+		intercept(
 			{
-				createDraft: matchers.isA(Function),
-				finishDraft: matchers.isA(Function),
-				produce: matchers.isA(Function),
+				type: 'request-end',
+				input: { foo: 'bar' },
+				output: { foo: 'bar', bar: 'baz' },
+				pipelineName: 'second',
+				prid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+				rid: 'e9480ca9-6a3f-4fb9-b07a-ed93ac9202d1',
+				status: 'success',
 			},
+			tools,
+		),
+	)
+
+	verify(
+		intercept({
+			type: 'invocation-begin',
+			iid: '1f8bcb4e-12d9-4bf9-ad2f-42215f69d03c',
+			input: { foo: 'bar' },
+			name: '.1',
+			pipelineName: 'first',
+			prid: undefined,
+			rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+		}),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'invocation-end',
+				iid: '1f8bcb4e-12d9-4bf9-ad2f-42215f69d03c',
+				input: { foo: 'bar' },
+				name: '.1',
+				output: { foo: 'bar', bar: 'baz' },
+				pipelineName: 'first',
+				prid: undefined,
+				rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+				status: 'success',
+			},
+			tools,
+		),
+	)
+
+	verify(
+		intercept({
+			type: 'invocation-begin',
+			iid: 'e5f2da88-cd2c-4e9f-85ae-3169a8ac34f0',
+			input: { foo: 'bar' },
+			name: '.2',
+			pipelineName: 'second',
+			prid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+			rid: 'e9480ca9-6a3f-4fb9-b07a-ed93ac9202d1',
+		}),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'invocation-end',
+				iid: 'e5f2da88-cd2c-4e9f-85ae-3169a8ac34f0',
+				input: { foo: 'bar' },
+				name: '.2',
+				output: { foo: 'bar', bar: 'baz' },
+				pipelineName: 'second',
+				prid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+				rid: 'e9480ca9-6a3f-4fb9-b07a-ed93ac9202d1',
+				status: 'success',
+			},
+			tools,
+		),
+	)
+
+	verify(
+		intercept({
+			type: 'invocation-begin',
+			iid: '50b95581-99db-476f-9805-ccb58cfd466a',
+			input: { foo: 'bar', bar: 'baz' },
+			name: '.3',
+			pipelineName: 'first',
+			prid: undefined,
+			rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+		}),
+	)
+
+	verify(
+		intercept(
+			{
+				type: 'invocation-end',
+				iid: '50b95581-99db-476f-9805-ccb58cfd466a',
+				input: { foo: 'bar', bar: 'baz' },
+				name: '.3',
+				output: { foo: 'bar', bar: 'baz', qux: 'waldo' },
+				pipelineName: 'first',
+				prid: undefined,
+				rid: '7f92590a-1baa-4954-9dc8-75a7b51574fd',
+				status: 'success',
+			},
+			tools,
 		),
 	)
 })
